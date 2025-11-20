@@ -1,0 +1,9 @@
+// Detect AI Service Key Extraction Attempts
+// Monitors for attempts to retrieve API keys or secrets
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where OperationName has_any ("ListKeys", "GetKeys", "RegenerateKey", "SecretGet")
+| where ResourceType in ("COGNITIVESERVICES", "MACHINELEARNINGSERVICES", "KEYVAULT")
+| project TimeGenerated, User = identity_claims_upn_s, CallerIPAddress,
+    Operation = OperationName, Resource, ResourceType, ResultType
+| order by TimeGenerated desc
