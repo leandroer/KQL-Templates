@@ -1,0 +1,11 @@
+// Detect Unauthorized ML Model Deployments
+// Monitors for suspicious or unauthorized model endpoint deployments
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("DeployModel", "CreateEndpoint", "UpdateEndpoint")
+| extend ModelName = tostring(properties_s.modelName)
+| extend EndpointName = tostring(properties_s.endpointName)
+| project TimeGenerated, User = identity_claims_upn_s, CallerIPAddress,
+    Operation = OperationName, ModelName, EndpointName, ResultType, Resource
+| order by TimeGenerated desc
