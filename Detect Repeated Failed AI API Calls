@@ -1,0 +1,13 @@
+// Detect Repeated Failed AI API Calls
+// May indicate unauthorized access attempts or API key compromise
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceType == "COGNITIVESERVICES"
+| where ResultType != "Success" and ResultType != "200"
+| summarize FailureCount = count(), ErrorTypes = make_set(ResultType),
+    FirstFailure = min(TimeGenerated), LastFailure = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_appid_g, OperationName
+| where FailureCount >= 10
+| project FirstFailure, LastFailure, SourceIP = CallerIPAddress, 
+    AppId = identity_claims_appid_g, Operation = OperationName, FailureCount, ErrorTypes
+| order by FailureCount desc
