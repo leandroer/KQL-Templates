@@ -1,0 +1,54 @@
+// Perplexity - Excessive Search Query Volume
+DeviceNetworkEvents
+| where TimeGenerated > ago(1h)
+| where RemoteUrl has_any ("perplexity.ai", "api.perplexity.ai")
+| where ActionType == "ConnectionSuccess"
+| summarize QueryCount = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    TotalDataReceivedMB = sum(ReceivedBytes)/1024/1024,
+    AvgQuerySizeKB = avg(SentBytes)/1024,
+    FirstQuery = min(TimeGenerated),
+    LastQuery = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl, bin(TimeGenerated, 5m)
+| where QueryCount > 200 or TotalDataSentMB > 25
+| project FirstQuery, LastQuery, Device = DeviceName,
+    User = InitiatingProcessAccountName, Endpoint = RemoteUrl,
+    QueryCount, TotalDataSentMB, TotalDataReceivedMB
+| order by QueryCount desc
+
+
+// Perplexity - Research Data Collection Pattern
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has "perplexity.ai"
+| where ActionType == "ConnectionSuccess"
+| extend SessionDuration = LastConnection - FirstConnection
+| summarize ConnectionCount = count(),
+    TotalDataReceivedMB = sum(ReceivedBytes)/1024/1024,
+    SessionStart = min(TimeGenerated),
+    SessionEnd = max(TimeGenerated),
+    SessionDuration = max(TimeGenerated) - min(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl
+| where SessionDuration > 4h or TotalDataReceivedMB > 100
+| project SessionStart, SessionEnd, SessionDurationHours = SessionDuration/1h,
+    Device = DeviceName, User = InitiatingProcessAccountName,
+    ConnectionCount, TotalDataReceivedMB
+| order by TotalDataReceivedMB desc
+
+
+// Perplexity - Corporate IP Monitoring
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has_any ("perplexity.ai", "api.perplexity.ai")
+| where ActionType == "ConnectionSuccess"
+| summarize UniqueUsers = dcount(InitiatingProcessAccountName),
+    Users = make_set(InitiatingProcessAccountName),
+    TotalQueries = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by DeviceName, RemoteUrl
+| where TotalDataSentMB > 50 or TotalQueries > 500
+| project FirstSeen, LastSeen, Device = DeviceName, Endpoint = RemoteUrl,
+    UniqueUsers, UserList = Users, TotalQueries, TotalDataSentMB
+| order by TotalDataSentMB desc
