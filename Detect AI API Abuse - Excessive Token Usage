@@ -6,7 +6,7 @@
 // 1. AI API ABUSE & PROMPT INJECTION
 // ========================================
 
-// Query 1.1: Detect AI API Abuse - Excessive Token Usage
+// Detect AI API Abuse - Excessive Token Usage
 // Monitors for unusually high token consumption that may indicate abuse or data exfiltration
 AzureDiagnostics
 | where TimeGenerated > ago(1h)
