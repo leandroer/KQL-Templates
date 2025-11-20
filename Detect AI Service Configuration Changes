@@ -1,0 +1,11 @@
+// Detect AI Service Configuration Changes
+// Identifies potentially malicious changes to AI service configurations
+AzureDiagnostics
+| where TimeGenerated > ago(7d)
+| where ResourceType == "COGNITIVESERVICES" or ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("Write", "Update", "Delete", "CreateOrUpdate")
+    and OperationName !has "Read"
+| extend ConfigChange = tostring(properties_s)
+| project TimeGenerated, User = identity_claims_upn_s, CallerIPAddress,
+    Operation = OperationName, Resource, ResourceGroup, ResultType, SubscriptionId
+| order by TimeGenerated desc
