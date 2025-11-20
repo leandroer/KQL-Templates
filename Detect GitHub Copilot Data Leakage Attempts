@@ -1,0 +1,15 @@
+// Detect GitHub Copilot Data Leakage Attempts
+// Monitors for patterns suggesting code or data exfiltration via Copilot
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has_any ("copilot-proxy.githubusercontent.com", "api.github.com", "copilot.github.com")
+| where ActionType == "ConnectionSuccess"
+| extend RequestSizeKB = SentBytes/1024
+| summarize TotalRequests = count(), TotalDataSentMB = sum(SentBytes)/1024/1024,
+    AvgRequestSizeKB = avg(SentBytes)/1024,
+    FirstConnection = min(TimeGenerated), LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl, bin(TimeGenerated, 10m)
+| where TotalDataSentMB > 10 or AvgRequestSizeKB > 100 // Large requests
+| project FirstConnection, LastConnection, Device = DeviceName, 
+    User = InitiatingProcessAccountName, TotalRequests, TotalDataSentMB, AvgRequestSizeKB
+| order by TotalDataSentMB desc
