@@ -1,0 +1,55 @@
+// Grok - Excessive API Usage
+// Monitoring network traffic to Grok endpoints
+DeviceNetworkEvents
+| where TimeGenerated > ago(1h)
+| where RemoteUrl has_any ("api.x.ai", "grok.x.ai")
+| where ActionType == "ConnectionSuccess"
+| extend RequestSizeKB = SentBytes/1024
+| extend ResponseSizeKB = ReceivedBytes/1024
+| summarize TotalRequests = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    TotalDataReceivedMB = sum(ReceivedBytes)/1024/1024,
+    AvgRequestSizeKB = avg(SentBytes)/1024,
+    FirstConnection = min(TimeGenerated),
+    LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl, bin(TimeGenerated, 5m)
+| where TotalRequests > 500 or TotalDataSentMB > 50
+| project FirstConnection, LastConnection, Device = DeviceName,
+    User = InitiatingProcessAccountName, Endpoint = RemoteUrl,
+    TotalRequests, TotalDataSentMB, TotalDataReceivedMB
+| order by TotalDataSentMB desc
+
+
+// Grok - Unauthorized Access Attempts
+CommonSecurityLog
+| where TimeGenerated > ago(24h)
+| where DestinationHostName has_any ("api.x.ai", "grok.x.ai")
+| where SimplifiedDeviceAction in ("Denied", "Blocked", "Rejected")
+| summarize BlockedAttempts = count(),
+    SourceIPs = make_set(SourceIP),
+    FirstAttempt = min(TimeGenerated),
+    LastAttempt = max(TimeGenerated)
+    by DestinationHostName, ApplicationProtocol
+| where BlockedAttempts >= 10
+| project FirstAttempt, LastAttempt, GrokEndpoint = DestinationHostName,
+    BlockedAttempts, SourceIPs, Protocol = ApplicationProtocol
+| order by BlockedAttempts desc
+
+
+// Grok - Data Exfiltration via API
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has_any ("api.x.ai", "grok.x.ai")
+| where ActionType == "ConnectionSuccess"
+| summarize TotalDataSentMB = sum(SentBytes)/1024/1024,
+    ConnectionCount = count(),
+    UniqueEndpoints = dcount(RemoteUrl),
+    Endpoints = make_set(RemoteUrl),
+    FirstConnection = min(TimeGenerated),
+    LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName
+| where TotalDataSentMB > 100 or ConnectionCount > 1000
+| project FirstConnection, LastConnection, Device = DeviceName,
+    User = InitiatingProcessAccountName, Process = InitiatingProcessFileName,
+    TotalDataSentMB, ConnectionCount, Endpoints
+| order by TotalDataSentMB desc
