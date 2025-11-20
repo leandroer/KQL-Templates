@@ -1,0 +1,13 @@
+// Detect Microsoft 365 Copilot Excessive Usage
+// Monitors for unusual Copilot activity patterns
+OfficeActivity
+| where TimeGenerated > ago(24h)
+| where Operation has "Copilot" or ClientAppId has "Microsoft 365 Copilot"
+| summarize CopilotRequests = count(), 
+    Operations = make_set(Operation),
+    FirstActivity = min(TimeGenerated), LastActivity = max(TimeGenerated)
+    by UserId, ClientIP, UserAgent
+| where CopilotRequests >= 100 // Adjust based on normal usage
+| project FirstActivity, LastActivity, User = UserId, ClientIP, 
+    RequestCount = CopilotRequests, Operations
+| order by RequestCount desc
