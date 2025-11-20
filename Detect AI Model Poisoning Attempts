@@ -1,0 +1,16 @@
+// Detect AI Model Poisoning Attempts
+// Identifies suspicious training job submissions or dataset modifications
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("TrainingJobSubmit", "DatasetUpdate", "DatasetCreate", "ModelRegister")
+| extend JobName = tostring(properties_s.jobName)
+| extend DatasetName = tostring(properties_s.datasetName)
+| summarize OperationCount = count(), Operations = make_set(OperationName),
+    Resources = make_set(coalesce(JobName, DatasetName)),
+    FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_upn_s
+| where OperationCount >= 10 // Multiple rapid submissions
+| project FirstSeen, LastSeen, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    OperationCount, Operations, AffectedResources = Resources
+| order by OperationCount desc
