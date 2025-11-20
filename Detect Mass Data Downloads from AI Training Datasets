@@ -1,0 +1,15 @@
+// Detect Mass Data Downloads from AI Training Datasets
+// Identifies bulk downloads of training data or datasets
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "STORAGEACCOUNTS" or ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("BlobDownload", "DatasetDownload", "GetBlob")
+| extend BytesTransferred = todouble(properties_d.responseSize)
+| where isnotempty(BytesTransferred)
+| summarize TotalDataMB = sum(BytesTransferred)/1024/1024, DownloadCount = count(),
+    FirstDownload = min(TimeGenerated), LastDownload = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_upn_s, Resource
+| where TotalDataMB > 1000 or DownloadCount > 100 // More than 1GB or 100 downloads
+| project FirstDownload, LastDownload, User = identity_claims_upn_s, 
+    SourceIP = CallerIPAddress, Resource, TotalDataMB, DownloadCount
+| order by TotalDataMB desc
