@@ -1,11 +1,3 @@
-// ========================================
-// SUSPICIOUS AI ACTIVITY DETECTION QUERIES
-// ========================================
-
-// ========================================
-// 1. AI API ABUSE & PROMPT INJECTION
-// ========================================
-
 // Detect AI API Abuse - Excessive Token Usage
 // Monitors for unusually high token consumption that may indicate abuse or data exfiltration
 AzureDiagnostics
