@@ -1,0 +1,114 @@
+// Query 1: Azure OpenAI - Excessive Token Consumption
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where Category == "RequestResponse" or Category == "Audit"
+| extend ModelDeployment = tostring(parse_json(properties_s).modelDeploymentName)
+| extend PromptTokens = toint(parse_json(properties_s).prompt_tokens)
+| extend CompletionTokens = toint(parse_json(properties_s).completion_tokens)
+| extend TotalTokens = toint(parse_json(properties_s).total_tokens)
+| where isnotempty(TotalTokens)
+| summarize TotalTokensUsed = sum(TotalTokens), 
+    AvgTokensPerRequest = avg(TotalTokens),
+    RequestCount = count(),
+    Models = make_set(ModelDeployment)
+    by CallerIPAddress, identity_claims_upn_s, bin(TimeGenerated, 5m)
+| where TotalTokensUsed > 50000 or AvgTokensPerRequest > 4000
+| project TimeGenerated, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    TotalTokensUsed, RequestCount, AvgTokensPerRequest, ModelsUsed = Models
+| order by TotalTokensUsed desc
+
+
+// Query 2: Azure OpenAI - Prompt Injection Detection
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where Category == "RequestResponse"
+| extend PromptContent = tostring(parse_json(properties_s).prompt)
+| extend ModelDeployment = tostring(parse_json(properties_s).modelDeploymentName)
+| where PromptContent has_any (
+    "ignore previous instructions", "ignore all previous", "disregard previous",
+    "forget everything", "system:", "###", "you are now", "new role",
+    "jailbreak", "DAN", "developer mode", "SUDO", "override safety",
+    "bypass filter", "unrestricted mode", "roleplay as", "act as",
+    "<|endoftext|>", "<|im_start|>", "<|im_end|>"
+)
+| project TimeGenerated, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    Model = ModelDeployment, SuspiciousPrompt = PromptContent, 
+    ResponseStatus = ResultType
+| order by TimeGenerated desc
+
+
+// Query 3: Azure OpenAI - Unusual Model Access Patterns
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where OperationName has_any ("OpenAI.Completions", "OpenAI.ChatCompletions", "OpenAI.Embeddings")
+| extend ModelDeployment = tostring(parse_json(properties_s).modelDeploymentName)
+| summarize RequestCount = count(),
+    UniqueIPs = dcount(CallerIPAddress),
+    IPList = make_set(CallerIPAddress),
+    FirstAccess = min(TimeGenerated),
+    LastAccess = max(TimeGenerated)
+    by identity_claims_upn_s, ModelDeployment
+| where RequestCount > 1000 or UniqueIPs > 10
+| project FirstAccess, LastAccess, User = identity_claims_upn_s, 
+    Model = ModelDeployment, RequestCount, UniqueIPCount = UniqueIPs, SourceIPs = IPList
+| order by RequestCount desc
+
+
+// Query 4: Azure OpenAI - Content Filter Bypasses
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where Category == "RequestResponse"
+| extend ContentFilterResults = parse_json(properties_s).content_filter_result
+| extend PromptFilterResults = parse_json(ContentFilterResults).prompt
+| extend HateScore = toint(parse_json(PromptFilterResults).hate.severity)
+| extend SelfHarmScore = toint(parse_json(PromptFilterResults).self_harm.severity)
+| extend SexualScore = toint(parse_json(PromptFilterResults).sexual.severity)
+| extend ViolenceScore = toint(parse_json(PromptFilterResults).violence.severity)
+| where HateScore >= 4 or SelfHarmScore >= 4 or SexualScore >= 4 or ViolenceScore >= 4
+| project TimeGenerated, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    HateScore, SelfHarmScore, SexualScore, ViolenceScore,
+    Prompt = tostring(parse_json(properties_s).prompt)
+| order by TimeGenerated desc
+
+
+// Query 5: Azure OpenAI - Data Exfiltration via Embeddings
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where OperationName contains "OpenAI.Embeddings"
+| extend InputTextLength = strlen(tostring(parse_json(properties_s).input))
+| extend ModelDeployment = tostring(parse_json(properties_s).modelDeploymentName)
+| summarize TotalRequests = count(),
+    TotalCharacters = sum(InputTextLength),
+    AvgCharsPerRequest = avg(InputTextLength),
+    FirstRequest = min(TimeGenerated),
+    LastRequest = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_upn_s, ModelDeployment
+| where TotalRequests > 100 or TotalCharacters > 500000
+| project FirstRequest, LastRequest, User = identity_claims_upn_s, 
+    SourceIP = CallerIPAddress, Model = ModelDeployment,
+    TotalRequests, TotalCharacters, AvgCharsPerRequest
+| order by TotalCharacters desc
+
+
+// Query 6: Azure OpenAI - API Key Compromise Detection
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| extend ApiKeyId = tostring(parse_json(properties_s).apiKeyId)
+| where isnotempty(ApiKeyId)
+| summarize UniqueIPs = dcount(CallerIPAddress),
+    IPList = make_set(CallerIPAddress),
+    Locations = make_set(location_s),
+    RequestCount = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by ApiKeyId, Resource
+| where UniqueIPs >= 5 or array_length(Locations) >= 3
+| project FirstSeen, LastSeen, ApiKeyId, Resource, 
+    UniqueIPCount = UniqueIPs, SourceIPs = IPList, Locations, RequestCount
+| order by UniqueIPCount desc
