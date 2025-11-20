@@ -1,0 +1,15 @@
+// Detect Unusual Azure ML Dataset Access Patterns
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("DatasetRead", "DatasetDownload", "DatastoreAccess")
+| extend DatasetName = tostring(properties_s.datasetName)
+| summarize AccessCount = count(), Datasets = make_set(DatasetName),
+    DataVolume = sum(todouble(properties_d.dataSize)),
+    FirstAccess = min(TimeGenerated), LastAccess = max(TimeGenerated)
+    by identity_claims_upn_s, CallerIPAddress
+| where AccessCount >= 20 or DataVolume > 1073741824 // 20+ accesses or >1GB
+| project FirstAccess, LastAccess, User = identity_claims_upn_s,
+    SourceIP = CallerIPAddress, AccessCount, DataVolumeMB = DataVolume/1024/1024,
+    AccessedDatasets = Datasets
+| order by DataVolumeMB desc
