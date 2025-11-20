@@ -1,0 +1,14 @@
+// Detect AI API Key Usage from Multiple IPs
+// Identifies potential API key compromise through geographic anomalies
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "COGNITIVESERVICES"
+| where isnotempty(CallerIPAddress)
+| summarize UniqueIPs = dcount(CallerIPAddress), IPList = make_set(CallerIPAddress),
+    RequestCount = count(), Locations = make_set(location_s),
+    FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)
+    by identity_claims_appid_g, Resource
+| where UniqueIPs >= 5 // Same API key from 5+ IPs
+| project FirstSeen, LastSeen, AppId = identity_claims_appid_g, Resource,
+    UniqueIPCount = UniqueIPs, RequestCount, SourceIPs = IPList, Locations
+| order by UniqueIPCount desc
