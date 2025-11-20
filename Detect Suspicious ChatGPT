@@ -1,0 +1,21 @@
+// Detect Suspicious ChatGPT/AI Service Usage from Corporate Network
+// Identifies potential data leakage to external AI services
+let ExternalAIServices = dynamic([
+    "chat.openai.com", "chatgpt.com", "api.openai.com",
+    "claude.ai", "anthropic.com",
+    "bard.google.com", "gemini.google.com",
+    "api.cohere.ai", "api.anthropic.com"
+]);
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has_any (ExternalAIServices)
+| where ActionType == "ConnectionSuccess"
+| summarize ConnectionCount = count(), TotalDataSentMB = sum(SentBytes)/1024/1024,
+    Services = make_set(RemoteUrl),
+    FirstConnection = min(TimeGenerated), LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName
+| where TotalDataSentMB > 5 // More than 5MB sent
+| project FirstConnection, LastConnection, Device = DeviceName, 
+    User = InitiatingProcessAccountName, Process = InitiatingProcessFileName,
+    ConnectionCount, TotalDataSentMB, AIServices = Services
+| order by TotalDataSentMB desc
