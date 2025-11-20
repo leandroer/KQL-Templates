@@ -1,0 +1,13 @@
+// Detect Bulk Extraction of AI Model Predictions
+// May indicate attempts to recreate proprietary models
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceType == "COGNITIVESERVICES" or ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("Predict", "Score", "Inference", "Completion")
+| summarize PredictionCount = count(), UniqueModels = dcount(tostring(properties_s.modelId)),
+    FirstRequest = min(TimeGenerated), LastRequest = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_appid_g, bin(TimeGenerated, 5m)
+| where PredictionCount >= 1000 // Very high prediction volume
+| project FirstRequest, LastRequest, SourceIP = CallerIPAddress,
+    AppId = identity_claims_appid_g, PredictionCount, UniqueModels
+| order by PredictionCount desc
