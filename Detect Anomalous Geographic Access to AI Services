@@ -1,0 +1,16 @@
+// Detect Anomalous Geographic Access to AI Services
+// Identifies access from unexpected countries or regions
+let KnownLocations = dynamic(["United States", "Canada", "United Kingdom"]); // Add your expected locations
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "COGNITIVESERVICES" or ResourceType == "MACHINELEARNINGSERVICES"
+| where isnotempty(location_s)
+| extend Location = tostring(location_s)
+| where Location !in (KnownLocations)
+| summarize RequestCount = count(), Operations = make_set(OperationName),
+    FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)
+    by Location, CallerIPAddress, identity_claims_upn_s, Resource
+| project FirstSeen, LastSeen, UnexpectedLocation = Location, 
+    SourceIP = CallerIPAddress, User = identity_claims_upn_s,
+    Resource, RequestCount, Operations
+| order by RequestCount desc
