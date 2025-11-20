@@ -1,0 +1,24 @@
+// ========================================
+// SUSPICIOUS AI ACTIVITY DETECTION QUERIES
+// ========================================
+
+// ========================================
+// 1. AI API ABUSE & PROMPT INJECTION
+// ========================================
+
+// Query 1.1: Detect AI API Abuse - Excessive Token Usage
+// Monitors for unusually high token consumption that may indicate abuse or data exfiltration
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceType == "COGNITIVESERVICES" or ResourceProvider == "MICROSOFT.COGNITIVESERVICES"
+| where OperationName has_any ("OpenAI", "TextAnalytics", "Language")
+| extend TokensUsed = toint(properties_d.total_tokens)
+| where isnotempty(TokensUsed)
+| summarize TotalTokens = sum(TokensUsed), RequestCount = count(), 
+    AvgTokensPerRequest = avg(TokensUsed),
+    FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_appid_g, OperationName, bin(TimeGenerated, 5m)
+| where TotalTokens > 100000 or AvgTokensPerRequest > 8000 // Adjust thresholds
+| project FirstSeen, LastSeen, CallerIP = CallerIPAddress, AppId = identity_claims_appid_g, 
+    Operation = OperationName, TotalTokens, RequestCount, AvgTokensPerRequest
+| order by TotalTokens desc
