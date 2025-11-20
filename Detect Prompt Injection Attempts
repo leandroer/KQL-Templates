@@ -1,0 +1,30 @@
+// Identifies suspicious patterns in AI prompts that may be attempting jailbreaks or injections
+let SuspiciousPatterns = dynamic([
+    "ignore previous instructions",
+    "ignore above",
+    "disregard previous",
+    "forget everything",
+    "system prompt",
+    "you are now",
+    "new instructions",
+    "roleplay as",
+    "pretend you are",
+    "act as if",
+    "DAN mode",
+    "developer mode",
+    "jailbreak",
+    "override",
+    "<|im_start|>",
+    "<|im_end|>",
+    "SUDO mode"
+]);
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "COGNITIVESERVICES"
+| where OperationName has "OpenAI" or OperationName has "Completions"
+| extend PromptText = tostring(properties_s.prompt)
+| where isnotempty(PromptText)
+| where PromptText has_any (SuspiciousPatterns)
+| project TimeGenerated, CallerIPAddress, identity_claims_upn_s, 
+    OperationName, SuspiciousPrompt = PromptText, ResultType
+| order by TimeGenerated desc
