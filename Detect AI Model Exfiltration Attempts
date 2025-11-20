@@ -1,0 +1,15 @@
+// Detect AI Model Exfiltration Attempts
+// Monitors for attempts to extract model weights or architecture
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "COGNITIVESERVICES" or ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("ModelDownload", "ModelExport", "GetModel", "ListModels")
+    or (OperationName has "Read" and properties_s has "model")
+| extend ModelName = tostring(properties_s.modelName)
+| summarize AccessCount = count(), UniqueModels = dcount(ModelName),
+    Models = make_set(ModelName), FirstAccess = min(TimeGenerated), LastAccess = max(TimeGenerated)
+    by CallerIPAddress, identity_claims_upn_s, identity_claims_appid_g
+| where AccessCount >= 5 or UniqueModels >= 3
+| project FirstAccess, LastAccess, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    AccessCount, UniqueModelsAccessed = UniqueModels, ModelList = Models
+| order by AccessCount desc
