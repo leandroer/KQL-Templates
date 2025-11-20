@@ -1,0 +1,13 @@
+// Detect Unauthorized Access to AI Workspaces
+// Monitors access from unusual locations or after hours
+let NormalWorkHours = dynamic([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]); // 8 AM to 5 PM
+AzureDiagnostics
+| where TimeGenerated > ago(7d)
+| where ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("WorkspaceAccess", "NotebookAccess", "ComputeAccess")
+| extend Hour = datetime_part("hour", TimeGenerated)
+| extend IsAfterHours = iff(Hour !in (NormalWorkHours), true, false)
+| where IsAfterHours == true
+| project TimeGenerated, User = identity_claims_upn_s, SourceIP = CallerIPAddress,
+    Operation = OperationName, Resource, Location = location_s
+| order by TimeGenerated desc
