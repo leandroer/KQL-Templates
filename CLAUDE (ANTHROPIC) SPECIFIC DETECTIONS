@@ -1,0 +1,104 @@
+// Claude - Excessive API Usage
+DeviceNetworkEvents
+| where TimeGenerated > ago(1h)
+| where RemoteUrl has_any ("api.anthropic.com", "claude.ai")
+| where ActionType == "ConnectionSuccess"
+| extend RequestSizeKB = SentBytes/1024
+| extend ResponseSizeKB = ReceivedBytes/1024
+| summarize TotalRequests = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    TotalDataReceivedMB = sum(ReceivedBytes)/1024/1024,
+    AvgRequestSizeKB = avg(SentBytes)/1024,
+    AvgResponseSizeKB = avg(ReceivedBytes)/1024,
+    FirstConnection = min(TimeGenerated),
+    LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl, bin(TimeGenerated, 5m)
+| where TotalRequests > 300 or TotalDataSentMB > 30
+| project FirstConnection, LastConnection, Device = DeviceName,
+    User = InitiatingProcessAccountName, Endpoint = RemoteUrl,
+    TotalRequests, TotalDataSentMB, TotalDataReceivedMB
+| order by TotalDataSentMB desc
+
+
+// Claude - Long Context Window Abuse
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has_any ("api.anthropic.com", "claude.ai")
+| where ActionType == "ConnectionSuccess"
+| extend RequestSizeKB = SentBytes/1024
+| where RequestSizeKB > 100  // Very large requests (>100KB)
+| summarize LargeRequestCount = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    MaxRequestSizeKB = max(SentBytes)/1024,
+    AvgRequestSizeKB = avg(SentBytes)/1024,
+    FirstRequest = min(TimeGenerated),
+    LastRequest = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, RemoteUrl
+| where LargeRequestCount >= 5
+| project FirstRequest, LastRequest, Device = DeviceName,
+    User = InitiatingProcessAccountName, Endpoint = RemoteUrl,
+    LargeRequestCount, TotalDataSentMB, MaxRequestSizeKB, AvgRequestSizeKB
+| order by TotalDataSentMB desc
+
+
+// Claude - API Key Compromise Detection
+// Monitor for usage from multiple IPs with same API patterns
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has "api.anthropic.com"
+| where ActionType == "ConnectionSuccess"
+| summarize UniqueDevices = dcount(DeviceName),
+    Devices = make_set(DeviceName),
+    UniqueUsers = dcount(InitiatingProcessAccountName),
+    Users = make_set(InitiatingProcessAccountName),
+    RequestCount = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by RemoteIP, RemoteUrl
+| where UniqueDevices >= 5 or UniqueUsers >= 5
+| project FirstSeen, LastSeen, AnthropicIP = RemoteIP, Endpoint = RemoteUrl,
+    UniqueDeviceCount = UniqueDevices, UniqueUserCount = UniqueUsers,
+    DeviceList = Devices, UserList = Users, RequestCount
+| order by UniqueDeviceCount desc
+
+
+// Claude - Artifacts Usage Pattern Monitoring
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has "claude.ai"
+| where ActionType == "ConnectionSuccess"
+| extend DataExchangeMB = (SentBytes + ReceivedBytes)/1024/1024
+| summarize TotalSessions = count(),
+    TotalDataExchangedMB = sum(DataExchangeMB),
+    AvgSessionDataMB = avg(DataExchangeMB),
+    LongestSessionData = max(DataExchangeMB),
+    FirstSession = min(TimeGenerated),
+    LastSession = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName
+| where TotalDataExchangedMB > 500 or LongestSessionData > 100
+| project FirstSession, LastSession, Device = DeviceName,
+    User = InitiatingProcessAccountName, TotalSessions,
+    TotalDataExchangedMB, AvgSessionDataMB, LongestSessionDataMB = LongestSessionData
+| order by TotalDataExchangedMB desc
+
+
+// Claude - Prompt Injection via Web Interface
+// Monitoring for suspicious patterns in browser traffic
+DeviceNetworkEvents
+| where TimeGenerated > ago(24h)
+| where RemoteUrl has "claude.ai"
+| where InitiatingProcessFileName in~ ("chrome.exe", "firefox.exe", "msedge.exe", "brave.exe")
+| extend RequestSizeKB = SentBytes/1024
+| where RequestSizeKB > 50  // Large prompts
+| summarize LargePromptCount = count(),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    MaxPromptSizeKB = max(RequestSizeKB),
+    AvgPromptSizeKB = avg(RequestSizeKB),
+    FirstPrompt = min(TimeGenerated),
+    LastPrompt = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName
+| where LargePromptCount >= 10
+| project FirstPrompt, LastPrompt, Device = DeviceName,
+    User = InitiatingProcessAccountName, Browser = InitiatingProcessFileName,
+    LargePromptCount, TotalDataSentMB, MaxPromptSizeKB, AvgPromptSizeKB
+| order by LargePromptCount desc
