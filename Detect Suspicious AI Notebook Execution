@@ -1,0 +1,15 @@
+// Detect Suspicious AI Notebook Execution
+// Monitors Jupyter/notebook environments for suspicious code execution
+AzureDiagnostics
+| where TimeGenerated > ago(24h)
+| where ResourceType == "MACHINELEARNINGSERVICES"
+| where OperationName has_any ("NotebookExecution", "NotebookRun", "KernelStart")
+| extend NotebookName = tostring(properties_s.notebookName)
+| extend KernelName = tostring(properties_s.kernelName)
+| summarize ExecutionCount = count(), Notebooks = make_set(NotebookName),
+    FirstExecution = min(TimeGenerated), LastExecution = max(TimeGenerated)
+    by identity_claims_upn_s, CallerIPAddress, Resource
+| where ExecutionCount >= 50 // High frequency execution
+| project FirstExecution, LastExecution, User = identity_claims_upn_s,
+    SourceIP = CallerIPAddress, Resource, ExecutionCount, NotebooksExecuted = Notebooks
+| order by ExecutionCount desc
