@@ -1,0 +1,86 @@
+// AWS Bedrock - Excessive Model Invocations
+AWSCloudTrail
+| where TimeGenerated > ago(1h)
+| where EventSource == "bedrock.amazonaws.com"
+| where EventName in ("InvokeModel", "InvokeModelWithResponseStream")
+| extend ModelId = tostring(parse_json(RequestParameters).modelId)
+| extend InputTokens = toint(parse_json(ResponseElements).inputTokens)
+| extend OutputTokens = toint(parse_json(ResponseElements).outputTokens)
+| extend TotalTokens = InputTokens + OutputTokens
+| summarize TotalTokensUsed = sum(TotalTokens),
+    InvocationCount = count(),
+    AvgTokensPerInvocation = avg(TotalTokens),
+    Models = make_set(ModelId)
+    by SourceIPAddress, UserIdentityArn, bin(TimeGenerated, 5m)
+| where TotalTokensUsed > 100000 or InvocationCount > 500
+| project TimeGenerated, UserArn = UserIdentityArn, SourceIP = SourceIPAddress,
+    TotalTokensUsed, InvocationCount, AvgTokensPerInvocation, ModelsUsed = Models
+| order by TotalTokensUsed desc
+
+
+// AWS Bedrock - Prompt Injection Attempts
+// Note: This requires enabling Bedrock model invocation logging
+AWSCloudTrail
+| where TimeGenerated > ago(24h)
+| where EventSource == "bedrock.amazonaws.com"
+| where EventName in ("InvokeModel", "InvokeModelWithResponseStream")
+| extend ModelId = tostring(parse_json(RequestParameters).modelId)
+| extend PromptText = tostring(parse_json(RequestParameters).body)
+| where PromptText has_any (
+    "ignore previous", "disregard", "forget instructions",
+    "system prompt", "jailbreak", "DAN mode", "unrestricted",
+    "\\n\\nHuman:", "\\n\\nAssistant:", "override", "bypass"
+)
+| project TimeGenerated, UserArn = UserIdentityArn, SourceIP = SourceIPAddress,
+    ModelId, SuspiciousPrompt = PromptText, EventName
+| order by TimeGenerated desc
+
+
+// AWS Bedrock - Unauthorized Model Access
+AWSCloudTrail
+| where TimeGenerated > ago(24h)
+| where EventSource == "bedrock.amazonaws.com"
+| where EventName in ("GetFoundationModel", "ListFoundationModels", "GetCustomModel")
+| where ErrorCode != ""
+| summarize FailedAttempts = count(),
+    ErrorMessages = make_set(ErrorMessage),
+    TargetModels = make_set(tostring(parse_json(RequestParameters).modelIdentifier)),
+    FirstAttempt = min(TimeGenerated),
+    LastAttempt = max(TimeGenerated)
+    by SourceIPAddress, UserIdentityArn
+| where FailedAttempts >= 5
+| project FirstAttempt, LastAttempt, UserArn = UserIdentityArn, 
+    SourceIP = SourceIPAddress, FailedAttempts, ErrorMessages, TargetModels
+| order by FailedAttempts desc
+
+
+// WS Bedrock - Custom Model Theft Attempts
+AWSCloudTrail
+| where TimeGenerated > ago(7d)
+| where EventSource == "bedrock.amazonaws.com"
+| where EventName in ("GetCustomModel", "ListCustomModels", "GetModelInvocationLoggingConfiguration")
+| extend ModelArn = tostring(parse_json(RequestParameters).modelIdentifier)
+| summarize AccessCount = count(),
+    Models = make_set(ModelArn),
+    UniqueIPs = dcount(SourceIPAddress),
+    IPList = make_set(SourceIPAddress),
+    FirstAccess = min(TimeGenerated),
+    LastAccess = max(TimeGenerated)
+    by UserIdentityArn
+| where AccessCount >= 10 or UniqueIPs >= 3
+| project FirstAccess, LastAccess, UserArn = UserIdentityArn,
+    AccessCount, UniqueIPCount = UniqueIPs, SourceIPs = IPList, CustomModels = Models
+| order by AccessCount desc
+
+
+// AWS Bedrock - Guardrail Bypass Attempts
+AWSCloudTrail
+| where TimeGenerated > ago(24h)
+| where EventSource == "bedrock.amazonaws.com"
+| where EventName contains "Guardrail"
+| extend GuardrailId = tostring(parse_json(RequestParameters).guardrailIdentifier)
+| extend Action = tostring(parse_json(RequestParameters).action)
+| where Action has_any ("Delete", "Update", "Disable")
+| project TimeGenerated, UserArn = UserIdentityArn, SourceIP = SourceIPAddress,
+    EventName, GuardrailId, Action, AWSRegion
+| order by TimeGenerated desc
