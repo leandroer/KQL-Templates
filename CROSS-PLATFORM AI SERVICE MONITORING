@@ -1,0 +1,51 @@
+// Multi-Platform AI Service Usage
+let AIServices = dynamic([
+    "api.openai.com", "openai.azure.com", "api.anthropic.com", "claude.ai",
+    "bedrock.amazonaws.com", "api.x.ai", "grok.x.ai",
+    "perplexity.ai", "api.perplexity.ai",
+    "api.cohere.ai", "api.ai21.com"
+]);
+union DeviceNetworkEvents, AzureDiagnostics, AWSCloudTrail
+| where TimeGenerated > ago(24h)
+| extend ServiceURL = coalesce(RemoteUrl, tostring(parse_json(RequestParameters).endpoint), RequestURL)
+| where ServiceURL has_any (AIServices)
+| extend UserIdentifier = coalesce(
+    InitiatingProcessAccountName,
+    identity_claims_upn_s,
+    UserIdentityArn
+)
+| extend SourceAddress = coalesce(LocalIP, CallerIPAddress, SourceIPAddress)
+| summarize UniqueServices = dcount(ServiceURL),
+    Services = make_set(ServiceURL),
+    TotalConnections = count(),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by UserIdentifier, SourceAddress
+| where UniqueServices >= 3  // Using multiple AI services
+| project FirstSeen, LastSeen, User = UserIdentifier, SourceIP = SourceAddress,
+    UniqueAIServices = UniqueServices, AIServicesList = Services, TotalConnections
+| order by UniqueServices desc
+
+
+// Anomalous After-Hours AI Service Usage
+let BusinessHours = dynamic([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+let AIServices = dynamic([
+    "api.openai.com", "api.anthropic.com", "claude.ai",
+    "bedrock.amazonaws.com", "api.x.ai", "perplexity.ai"
+]);
+DeviceNetworkEvents
+| where TimeGenerated > ago(7d)
+| where RemoteUrl has_any (AIServices)
+| extend Hour = datetime_part("hour", TimeGenerated)
+| where Hour !in (BusinessHours)
+| summarize AfterHoursConnections = count(),
+    Services = make_set(RemoteUrl),
+    TotalDataSentMB = sum(SentBytes)/1024/1024,
+    FirstConnection = min(TimeGenerated),
+    LastConnection = max(TimeGenerated)
+    by DeviceName, InitiatingProcessAccountName
+| where AfterHoursConnections >= 50
+| project FirstConnection, LastConnection, Device = DeviceName,
+    User = InitiatingProcessAccountName, AfterHoursConnections,
+    AIServices = Services, TotalDataSentMB
+| order by AfterHoursConnections desc
