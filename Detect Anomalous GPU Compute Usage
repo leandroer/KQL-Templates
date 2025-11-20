@@ -1,0 +1,16 @@
+// Detect Anomalous GPU Compute Usage
+// Identifies unusual patterns in GPU compute that may indicate cryptomining or abuse
+AzureDiagnostics
+| where TimeGenerated > ago(1h)
+| where ResourceType == "MACHINELEARNINGSERVICES" or ResourceType == "VIRTUALMACHINES"
+| where Category == "ComputeMetrics" or OperationName has "Compute"
+| extend GPUUtilization = todouble(properties_d.gpuUtilization)
+| extend CPUUtilization = todouble(properties_d.cpuUtilization)
+| where isnotempty(GPUUtilization)
+| summarize AvgGPU = avg(GPUUtilization), MaxGPU = max(GPUUtilization),
+    AvgCPU = avg(CPUUtilization), Runtime = max(TimeGenerated) - min(TimeGenerated)
+    by Resource, identity_claims_upn_s, bin(TimeGenerated, 5m)
+| where AvgGPU > 90 and Runtime > time(4h) // High sustained GPU usage
+| project TimeGenerated, Resource, User = identity_claims_upn_s, 
+    AvgGPUPercent = AvgGPU, MaxGPUPercent = MaxGPU, RuntimeHours = Runtime/1h
+| order by RuntimeHours desc
