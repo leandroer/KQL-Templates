@@ -1,0 +1,11 @@
+// Name: External Sharing of Sensitive Data
+// Description: Detects sharing operations that should be correlated with sensitivity labels or Purview DLP events.
+// Data Source: OfficeActivity
+
+OfficeActivity
+| where TimeGenerated > ago(24h)
+| where Workload in ("SharePoint", "OneDrive")
+| where Operation in ("AnonymousLinkCreated", "SecureLinkCreated", "SharingSet", "AddedToSecureLink")
+| extend DetectionName = "External Sharing Activity"
+| extend Severity = "Medium"
+| project TimeGenerated, DetectionName, Severity, UserId, Operation, SourceFileName, Site_Url, ClientIP

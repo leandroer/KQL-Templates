@@ -1,0 +1,22 @@
+// Name:
+// Description:
+// Author:
+// Version:
+// Last Updated:
+// Data Sources:
+// MITRE ATT&CK:
+// Severity:
+// False Positives:
+// Tuning Guidance:
+// Response Guidance:
+
+let Lookback = 24h;
+let Threshold = 10;
+TableName
+| where TimeGenerated > ago(Lookback)
+| where <condition>
+| summarize EventCount=count(), Examples=make_set(<ColumnName>, 50) by <Entity>, bin(TimeGenerated, 1h)
+| where EventCount >= Threshold
+| extend DetectionName = ""
+| extend Severity = ""
+| project TimeGenerated, DetectionName, Severity, <Entity>, EventCount, Examples

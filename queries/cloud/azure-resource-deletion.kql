@@ -1,0 +1,12 @@
+// Name: Azure Resource Deletion
+// Description: Detects successful Azure resource deletion operations.
+// Data Source: AzureActivity
+// Response: Validate change ticket, actor, and deleted resource scope.
+
+AzureActivity
+| where TimeGenerated > ago(24h)
+| where OperationNameValue has "delete"
+| where ActivityStatusValue =~ "Success"
+| extend DetectionName = "Azure Resource Deletion"
+| extend Severity = "Medium"
+| project TimeGenerated, DetectionName, Severity, Caller, OperationNameValue, ResourceGroup, ResourceProviderValue, ResourceId

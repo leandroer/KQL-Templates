@@ -1,0 +1,29 @@
+id: REPLACE-WITH-GUID
+name: REPLACE-WITH-DETECTION-NAME
+description: |
+  Describe the detection logic, threat behavior, data sources, and expected response.
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: REPLACE-WITH-CONNECTOR
+    dataTypes:
+      - REPLACE-WITH-TABLE
+queryFrequency: 1h
+queryPeriod: 24h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+relevantTechniques:
+  - T0000
+query: |
+  TableName
+  | where TimeGenerated > ago(24h)
+  | where <condition>
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName
+version: 1.0.0
+kind: Scheduled

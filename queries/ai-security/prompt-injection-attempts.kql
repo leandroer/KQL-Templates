@@ -1,0 +1,19 @@
+// Name: Prompt Injection Attempts
+// Description: Detects common prompt injection and jailbreak terms in AI application prompts.
+// Data Source: AIApp_CL
+// Note: Adapt table and column names to your AI logging schema.
+
+let SuspiciousTerms = dynamic([
+    "ignore previous instructions",
+    "reveal your system prompt",
+    "jailbreak",
+    "bypass safety",
+    "developer message",
+    "hidden instructions"
+]);
+AIApp_CL
+| where TimeGenerated > ago(24h)
+| where Prompt_s has_any (SuspiciousTerms)
+| extend DetectionName = "Prompt Injection Attempt"
+| extend Severity = "High"
+| project TimeGenerated, DetectionName, Severity, UserPrincipalName_s, SourceIP_s, SessionId_s, Application_s, Prompt_s

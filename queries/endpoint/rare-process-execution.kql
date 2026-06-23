@@ -1,0 +1,11 @@
+// Name: Rare Process Execution
+// Description: Identifies rare process names by device population.
+// Data Source: DeviceProcessEvents
+// Use Case: Threat hunting and anomaly triage.
+
+DeviceProcessEvents
+| where Timestamp > ago(7d)
+| summarize DeviceCount=dcount(DeviceName), ExecutionCount=count(), Devices=make_set(DeviceName, 50)
+    by FileName, FolderPath
+| where DeviceCount <= 3 and ExecutionCount <= 10
+| order by DeviceCount asc, ExecutionCount asc

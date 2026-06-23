@@ -1,0 +1,13 @@
+// Name: Suspicious PowerShell Execution
+// Description: Detects PowerShell execution with encoded commands or suspicious flags.
+// Data Source: DeviceProcessEvents
+// Platform: Microsoft Defender XDR Advanced Hunting
+
+let SuspiciousFlags = dynamic(["-enc", "-encodedcommand", "downloadstring", "iex", "invoke-expression", "bypass", "hidden"]);
+DeviceProcessEvents
+| where Timestamp > ago(24h)
+| where FileName in~ ("powershell.exe", "pwsh.exe")
+| where ProcessCommandLine has_any (SuspiciousFlags)
+| extend DetectionName = "Suspicious PowerShell Execution"
+| extend Severity = "High"
+| project Timestamp, DetectionName, Severity, DeviceName, InitiatingProcessAccountUpn, FileName, ProcessCommandLine, InitiatingProcessFileName

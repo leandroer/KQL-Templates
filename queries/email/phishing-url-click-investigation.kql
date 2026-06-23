@@ -1,0 +1,11 @@
+// Name: Phishing URL Click Investigation
+// Description: Correlates email URL telemetry with click events.
+// Data Sources: EmailEvents, EmailUrlInfo, UrlClickEvents
+// Platform: Defender XDR Advanced Hunting
+
+EmailEvents
+| where Timestamp > ago(7d)
+| where ThreatTypes has_any ("Phish", "Malware")
+| join kind=leftouter EmailUrlInfo on NetworkMessageId
+| join kind=leftouter UrlClickEvents on Url
+| project Timestamp, RecipientEmailAddress, SenderFromAddress, Subject, ThreatTypes, Url, ActionType, IPAddress

@@ -1,0 +1,24 @@
+// Name: Successful Sign-in After Multiple Failures
+// Description: Correlates repeated failed sign-ins followed by success for the same user.
+// Data Source: SigninLogs
+// Use Case: Account compromise triage.
+
+let Lookback = 24h;
+let Failed =
+SigninLogs
+| where TimeGenerated > ago(Lookback)
+| where ResultType != 0
+| summarize FailedCount=count(), FailedIPs=make_set(IPAddress, 50), FirstFailure=min(TimeGenerated), LastFailure=max(TimeGenerated)
+    by UserPrincipalName;
+let Success =
+SigninLogs
+| where TimeGenerated > ago(Lookback)
+| where ResultType == 0
+| summarize arg_max(TimeGenerated, *) by UserPrincipalName;
+Failed
+| join kind=inner Success on UserPrincipalName
+| where FailedCount >= 5
+| where TimeGenerated between (FirstFailure .. LastFailure + 1h)
+| extend DetectionName = "Successful Sign-in After Multiple Failures"
+| extend Severity = "Medium"
+| project TimeGenerated, DetectionName, Severity, UserPrincipalName, FailedCount, FailedIPs, SuccessIP=IPAddress, AppDisplayName

@@ -1,0 +1,8 @@
+// Name: Noisy Analytics Rules
+// Description: Identifies Sentinel analytics rules creating the most incidents.
+// Data Source: SecurityIncident
+
+SecurityIncident
+| where TimeGenerated > ago(30d)
+| summarize IncidentCount=count(), LatestIncident=max(TimeGenerated) by Title
+| order by IncidentCount desc

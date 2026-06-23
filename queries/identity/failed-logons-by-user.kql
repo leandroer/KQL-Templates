@@ -1,0 +1,12 @@
+// Name: Failed Logons by User
+// Description: Summarizes failed Microsoft Entra ID sign-ins by user.
+// Data Source: SigninLogs
+// Use Case: SOC triage, brute-force investigation, account compromise analysis.
+
+let Lookback = 24h;
+SigninLogs
+| where TimeGenerated > ago(Lookback)
+| where ResultType != 0
+| summarize FailedAttempts=count(), IPs=make_set(IPAddress, 50), Apps=make_set(AppDisplayName, 50), ErrorCodes=make_set(ResultType, 20)
+    by UserPrincipalName
+| order by FailedAttempts desc

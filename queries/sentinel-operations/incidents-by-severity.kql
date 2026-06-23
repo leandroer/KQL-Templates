@@ -1,0 +1,8 @@
+// Name: Sentinel Incidents by Severity
+// Description: Summarizes Sentinel incidents by severity and status.
+// Data Source: SecurityIncident
+
+SecurityIncident
+| where TimeGenerated > ago(30d)
+| summarize IncidentCount=count() by Severity, Status
+| order by Severity asc

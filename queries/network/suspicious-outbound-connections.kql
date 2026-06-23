@@ -1,0 +1,13 @@
+// Name: Suspicious Outbound Connections
+// Description: Summarizes outbound network connections to uncommon remote ports.
+// Data Source: DeviceNetworkEvents
+
+let SuspiciousPorts = dynamic([4444, 1337, 8081, 9001, 31337]);
+DeviceNetworkEvents
+| where Timestamp > ago(24h)
+| where RemotePort in (SuspiciousPorts)
+| summarize ConnectionCount=count(), Devices=make_set(DeviceName, 50), Processes=make_set(InitiatingProcessFileName, 50)
+    by RemoteIP, RemotePort
+| extend DetectionName = "Suspicious Outbound Connection"
+| extend Severity = "Medium"
+| project DetectionName, Severity, RemoteIP, RemotePort, ConnectionCount, Devices, Processes

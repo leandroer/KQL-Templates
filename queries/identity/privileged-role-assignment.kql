@@ -1,0 +1,13 @@
+// Name: Privileged Role Assignment
+// Description: Detects Microsoft Entra role assignment activity.
+// Data Source: AuditLogs
+// Response: Validate change request, verify actor, review target account risk.
+
+AuditLogs
+| where TimeGenerated > ago(24h)
+| where OperationName has_any ("Add member to role", "Add eligible member", "Add scoped member to role")
+| extend Actor = coalesce(tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))
+| extend Target = tostring(TargetResources[0].userPrincipalName)
+| extend DetectionName = "Privileged Role Assignment"
+| extend Severity = "High"
+| project TimeGenerated, DetectionName, Severity, OperationName, Actor, Target, Result, TargetResources

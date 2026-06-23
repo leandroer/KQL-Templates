@@ -1,0 +1,17 @@
+// Name: Mass File Downloads
+// Description: Detects users downloading many files from SharePoint or OneDrive.
+// Data Source: OfficeActivity
+// Response: Review user intent, source IP, data sensitivity, and external sharing.
+
+let Lookback = 24h;
+let DownloadThreshold = 200;
+OfficeActivity
+| where TimeGenerated > ago(Lookback)
+| where Workload in ("SharePoint", "OneDrive")
+| where Operation in ("FileDownloaded", "FileSyncDownloadedFull")
+| summarize DownloadCount=count(), Files=make_set(SourceFileName, 100), Sites=make_set(Site_Url, 50)
+    by UserId, bin(TimeGenerated, 1h)
+| where DownloadCount >= DownloadThreshold
+| extend DetectionName = "Mass File Downloads"
+| extend Severity = "High"
+| project TimeGenerated, DetectionName, Severity, UserId, DownloadCount, Files, Sites

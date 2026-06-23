@@ -1,0 +1,12 @@
+// Name: AI Sensitive Data Disclosure
+// Description: Detects secrets or sensitive terms in AI prompts or responses.
+// Data Source: AIApp_CL
+// Response: Revoke secrets, preserve prompt/response evidence, notify SOC and data owner.
+
+let SensitiveTerms = dynamic(["api_key", "client_secret", "password", "Authorization: Bearer", "BEGIN PRIVATE KEY", "access_token"]);
+AIApp_CL
+| where TimeGenerated > ago(24h)
+| where Prompt_s has_any (SensitiveTerms) or Response_s has_any (SensitiveTerms)
+| extend DetectionName = "AI Sensitive Data Disclosure"
+| extend Severity = "Critical"
+| project TimeGenerated, DetectionName, Severity, UserPrincipalName_s, SourceIP_s, SessionId_s, Application_s, Prompt_s, Response_s
