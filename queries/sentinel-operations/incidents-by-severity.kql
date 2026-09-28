@@ -1,8 +1,21 @@
 // Name: Sentinel Incidents by Severity
 // Description: Summarizes Sentinel incidents by severity and status.
-// Data Source: SecurityIncident
+// Query Type: Investigation
+// Platforms: Microsoft Sentinel
+// Tables: SecurityIncident
+// Required Connectors: Microsoft Sentinel
+// MITRE ATT&CK: Not applicable - operational query
+// Severity: Informational
+// Lookback: 30d
+// Entity Fields: None
+// False Positives: Not applicable - operational reporting query
+// Tuning Guidance: Adjust the reporting window and include owner or product dimensions as needed
+// Response Guidance: Use the output to review workload, severity distribution, and triage demand
+// Validation Status: Example
+// Related Analytics Rule: None
 
 SecurityIncident
 | where TimeGenerated > ago(30d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
 | summarize IncidentCount=count() by Severity, Status
 | order by Severity asc

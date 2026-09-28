@@ -1,7 +1,18 @@
 // Name: Rare Process Execution
 // Description: Identifies rare process names by device population.
-// Data Source: DeviceProcessEvents
-// Use Case: Threat hunting and anomaly triage.
+// Query Type: Hunting
+// Platforms: Microsoft Defender XDR Advanced Hunting
+// Tables: DeviceProcessEvents
+// Required Connectors: Microsoft Defender XDR
+// MITRE ATT&CK: Varies by process behavior
+// Severity: Informational
+// Lookback: 7d
+// Entity Fields: DeviceName, FileName
+// False Positives: Newly deployed software or low-population administration tools
+// Tuning Guidance: Add prevalence baselines, signer context, hashes, and known-good exclusions
+// Response Guidance: Review file reputation, parent process, command line, and network activity
+// Validation Status: Example
+// Related Analytics Rule: None
 
 DeviceProcessEvents
 | where Timestamp > ago(7d)

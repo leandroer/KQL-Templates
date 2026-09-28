@@ -34,6 +34,9 @@ This repository is designed for security engineers, SOC analysts, detection engi
 - Deployable Microsoft Sentinel scheduled analytics rules
 - Detection architecture and lifecycle diagrams
 - Repository validation for query metadata and rule structure
+- ASIM-normalized query examples
+- Self-contained KQL logic fixtures
+- Custom AI telemetry schema contracts
 - Query tuning and performance guidance
 - Reusable query templates
 - Sentinel analytics rule examples
@@ -66,11 +69,14 @@ This repository is designed for security engineers, SOC analysts, detection engi
 │   ├── email/
 │   ├── ai-security/
 │   ├── ueba/
+│   ├── asim/
 │   ├── purview/
 │   └── sentinel-operations/
 ├── analytics-rules/
 ├── workbooks/
 ├── docs/architecture/
+├── docs/schemas/
+├── tests/fixtures/
 └── scripts/validate_content.py
 ```
 
@@ -83,14 +89,21 @@ This repository is designed for security engineers, SOC analysts, detection engi
 | `analytics-rules/` | Scheduled Microsoft Sentinel rule YAML | Tune and validate before deployment |
 | `templates/` | Starting points for new content | Replace every placeholder |
 | `docs/architecture/` | Detection engineering operating models | Reference documentation |
+| `docs/schemas/` | Contracts for repository-defined custom telemetry | Required for custom tables |
+| `tests/fixtures/` | Self-contained `datatable()` logic checks | Complements workspace testing |
+
+Browse the generated [content catalog](docs/content-catalog.md) for query type, tables, severity, validation status, ATT&CK mappings, and rule versions.
+
+See the [validation strategy](docs/validation-strategy.md) for the distinction between static checks, logic fixtures, schema compilation, Sentinel smoke tests, and production validation.
 
 ## Validate the Repository
 
 ```bash
 python3 scripts/validate_content.py
+python3 scripts/generate_catalog.py --check
 ```
 
-The validator checks query metadata, rule identifiers, unresolved placeholders, entity mapping output columns, relative Markdown links, and YAML structure when PyYAML is available.
+Install development dependencies with `python3 -m pip install -r requirements-dev.txt`. The validator checks query metadata, rule identifiers, `TimeGenerated`, scheduling, unresolved placeholders, final entity and custom-detail output columns, alert placeholders, fixtures, relative Markdown links, and YAML structure.
 
 ## Recommended Learning Path
 
@@ -115,7 +128,6 @@ The validator checks query metadata, rule identifiers, unresolved placeholders, 
 - `arg_max()`
 - `bin()`
 - `distinct`
-- `union`
 - `materialize()`
 - time windows
 - entity mapping
@@ -133,6 +145,8 @@ threat-hunting
 detection-engineering
 incident-response
 security-operations
+ueba
+ai-security
 microsoft-purview
 azure-security
 entra-id
@@ -143,11 +157,11 @@ siem
 ## Repository Notice
 
 This repository is maintained as a professional cybersecurity portfolio and research project focused on detection engineering, incident response, threat hunting, security automation, and AI security.
-Content is published for educational, technical, and professional reference purposes. This repository is not currently accepting community contributions, pull requests, issue submissions, or feature requests.
+Content is published for educational, technical, and professional reference purposes. This repository is not currently accepting unsolicited community contributions, issue submissions, or feature requests. `CONTRIBUTING.md` documents the maintainer's content-quality workflow.
 All content is provided as-is and should be reviewed, tested, and validated before use in production environments.
 
 ## Disclaimer
 
 These queries are intended for defensive security operations, threat hunting, and detection engineering. Always validate and tune thresholds before production deployment.
 
-Requests are not currently being accepted.
+Unsolicited requests are not currently being accepted.

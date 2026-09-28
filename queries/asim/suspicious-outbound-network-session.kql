@@ -1,0 +1,25 @@
+// Name: ASIM Suspicious Outbound Network Session
+// Description: Summarizes normalized outbound network sessions to uncommon remote ports.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel ASIM
+// Tables: _Im_NetworkSession parser
+// Required Connectors: Any source supported by the ASIM Network Session schema
+// MITRE ATT&CK: T1041 Exfiltration Over C2 Channel
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: SrcIpAddr, DstIpAddr
+// False Positives: Custom services, development systems, or approved remote administration
+// Tuning Guidance: Add reputation, prevalence, byte counts, direction, and application context
+// Response Guidance: Investigate the source asset, destination, initiating application, and session volume
+// Validation Status: Example
+// Related Analytics Rule: None
+
+let SuspiciousPorts = dynamic([4444, 1337, 8081, 9001, 31337]);
+_Im_NetworkSession(starttime=ago(24h))
+| where NetworkDirection =~ "Outbound" and DstPortNumber in (SuspiciousPorts)
+| summarize StartTime=min(TimeGenerated), EndTime=max(TimeGenerated), SessionCount=count(),
+    Sources=make_set(SrcIpAddr, 50), Applications=make_set(NetworkApplicationName, 50)
+    by DstIpAddr, DstPortNumber
+| extend TimeGenerated=EndTime
+| project TimeGenerated, StartTime, EndTime, DstIpAddr, DstPortNumber,
+    SessionCount, Sources, Applications

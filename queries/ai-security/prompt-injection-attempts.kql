@@ -1,7 +1,18 @@
 // Name: Prompt Injection Attempts
 // Description: Detects common prompt injection and jailbreak terms in AI application prompts.
-// Data Source: AIApp_CL
-// Note: Adapt table and column names to your AI logging schema.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, custom AI telemetry
+// Tables: AIApp_CL
+// Required Connectors: Custom Logs via AMA
+// MITRE ATT&CK: No direct Enterprise ATT&CK mapping; see OWASP LLM01
+// Severity: High
+// Lookback: 24h
+// Entity Fields: UserPrincipalName_s, SourceIP_s
+// False Positives: Security testing, educational prompts, or quoted content
+// Tuning Guidance: Adapt schema and combine terms with content-safety and tool-use signals
+// Response Guidance: Review session history, tool calls, outputs, and affected data
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/ai-security/prompt-injection.yaml
 
 let SuspiciousTerms = dynamic([
     "ignore previous instructions",

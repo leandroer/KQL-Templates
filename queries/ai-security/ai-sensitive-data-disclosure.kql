@@ -1,7 +1,18 @@
 // Name: AI Sensitive Data Disclosure
 // Description: Detects secrets or sensitive terms in AI prompts or responses.
-// Data Source: AIApp_CL
-// Response: Revoke secrets, preserve prompt/response evidence, notify SOC and data owner.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, custom AI telemetry
+// Tables: AIApp_CL
+// Required Connectors: Custom Logs via AMA
+// MITRE ATT&CK: T1552 Unsecured Credentials
+// Severity: Critical
+// Lookback: 24h
+// Entity Fields: UserPrincipalName_s, SourceIP_s
+// False Positives: Test prompts, synthetic data, or approved red-team activity
+// Tuning Guidance: Replace keywords with tenant classifications and content-safety signals
+// Response Guidance: Revoke exposed secrets, preserve evidence, and notify the SOC and data owner
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/ai-security/sensitive-data-disclosure.yaml
 
 let SensitiveTerms = dynamic(["api_key", "client_secret", "password", "Authorization: Bearer", "BEGIN PRIVATE KEY", "access_token"]);
 AIApp_CL

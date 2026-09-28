@@ -1,8 +1,21 @@
 // Name: Noisy Analytics Rules
 // Description: Identifies Sentinel analytics rules creating the most incidents.
-// Data Source: SecurityIncident
+// Query Type: Investigation
+// Platforms: Microsoft Sentinel
+// Tables: SecurityIncident
+// Required Connectors: Microsoft Sentinel
+// MITRE ATT&CK: Not applicable - operational query
+// Severity: Informational
+// Lookback: 30d
+// Entity Fields: None
+// False Positives: Not applicable - operational reporting query
+// Tuning Guidance: Review unique incidents rather than SecurityIncident update snapshots
+// Response Guidance: Measure precision and analyst value before changing a noisy rule
+// Validation Status: Example
+// Related Analytics Rule: None
 
 SecurityIncident
 | where TimeGenerated > ago(30d)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
 | summarize IncidentCount=count(), LatestIncident=max(TimeGenerated) by Title
 | order by IncidentCount desc

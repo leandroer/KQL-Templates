@@ -28,7 +28,8 @@ query: |
   | join kind=inner SuccessfulSignins on UserPrincipalName
   | where SuccessTime between (FirstDenial .. LastDenial + 30m)
   | summarize arg_min(SuccessTime, *) by UserPrincipalName
-  | project SuccessTime, UserPrincipalName, SuccessIP, AppDisplayName,
+  | extend TimeGenerated=SuccessTime
+  | project TimeGenerated, SuccessTime, UserPrincipalName, SuccessIP, AppDisplayName,
       AuthenticationRequirement, FirstDenial, LastDenial, DenialCount, DenialIPs
 entityMappings:
   - entityType: Account
@@ -55,5 +56,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

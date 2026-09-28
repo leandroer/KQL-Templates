@@ -1,12 +1,24 @@
 // Name: Failed Logons by User
 // Description: Summarizes failed Microsoft Entra ID sign-ins by user.
-// Data Source: SigninLogs
-// Use Case: SOC triage, brute-force investigation, account compromise analysis.
+// Query Type: Investigation
+// Platforms: Microsoft Sentinel, Microsoft Entra ID
+// Tables: SigninLogs
+// Required Connectors: Microsoft Entra ID
+// MITRE ATT&CK: T1110 Brute Force
+// Severity: Informational
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, IPAddress
+// False Positives: Stale credentials, password changes, or misconfigured applications
+// Tuning Guidance: Adjust failure codes to the tenant and separate interactive from non-interactive events
+// Response Guidance: Review error codes, source IPs, applications, and successful follow-on activity
+// Validation Status: Example
+// Related Analytics Rule: None
 
 let Lookback = 24h;
+let InvalidCredentialCodes = dynamic(["50126", "50053", "50055", "50056"]);
 SigninLogs
 | where TimeGenerated > ago(Lookback)
-| where ResultType != 0
+| where tostring(ResultType) in (InvalidCredentialCodes)
 | summarize FailedAttempts=count(), IPs=make_set(IPAddress, 50), Apps=make_set(AppDisplayName, 50), ErrorCodes=make_set(ResultType, 20)
     by UserPrincipalName
 | order by FailedAttempts desc

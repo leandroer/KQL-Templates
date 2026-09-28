@@ -1,7 +1,18 @@
 // Name: Phishing URL Click Investigation
 // Description: Correlates email URL telemetry with click events.
-// Data Sources: EmailEvents, EmailUrlInfo, UrlClickEvents
-// Platform: Defender XDR Advanced Hunting
+// Query Type: Investigation
+// Platforms: Microsoft Defender XDR Advanced Hunting
+// Tables: EmailEvents, EmailUrlInfo, UrlClickEvents
+// Required Connectors: Microsoft Defender XDR
+// MITRE ATT&CK: T1566.002 Spearphishing Link
+// Severity: Informational
+// Lookback: 7d
+// Entity Fields: RecipientEmailAddress, SenderFromAddress, IPAddress, Url
+// False Positives: Security-awareness simulations and benign redirected links
+// Tuning Guidance: Filter simulation senders and known URL-rewriting services
+// Response Guidance: Review delivery, click action, authentication, and endpoint activity
+// Validation Status: Example
+// Related Analytics Rule: None
 
 EmailEvents
 | where Timestamp > ago(7d)

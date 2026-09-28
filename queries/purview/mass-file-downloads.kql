@@ -1,7 +1,18 @@
 // Name: Mass File Downloads
 // Description: Detects users downloading many files from SharePoint or OneDrive.
-// Data Source: OfficeActivity
-// Response: Review user intent, source IP, data sensitivity, and external sharing.
+// Query Type: Detection
+// Platforms: Microsoft Sentinel, Microsoft Purview Audit
+// Tables: OfficeActivity
+// Required Connectors: Microsoft 365
+// MITRE ATT&CK: T1530 Data from Cloud Storage
+// Severity: High
+// Lookback: 24h
+// Entity Fields: UserId
+// False Positives: Migration, backup, synchronization, eDiscovery, or approved bulk access
+// Tuning Guidance: Baseline by role and enrich with sensitivity, UEBA, and source IP context
+// Response Guidance: Review intent, downloaded data, source IP, sharing, and exfiltration activity
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/purview/mass-file-downloads.yaml
 
 let Lookback = 24h;
 let DownloadThreshold = 200;

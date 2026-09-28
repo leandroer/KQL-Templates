@@ -1,0 +1,22 @@
+// Name: ASIM Office Application Spawns Command Shell
+// Description: Detects normalized process events where an Office application creates a command or script interpreter.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel ASIM
+// Tables: _Im_ProcessCreate parser
+// Required Connectors: Any source supported by the ASIM Process Event schema
+// MITRE ATT&CK: T1204.002 Malicious File, T1059 Command and Scripting Interpreter
+// Severity: High
+// Lookback: 1h
+// Entity Fields: DvcHostname, ActorUsername, TargetProcessName
+// False Positives: Approved macros, automation, or administrative add-ins
+// Tuning Guidance: Exclude approved parent-child pairs and enrich with signer and command-line context
+// Response Guidance: Review the process tree, document source, payloads, and subsequent network activity
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/endpoint/office-application-spawns-shell.yaml
+
+let OfficeApps = dynamic(["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe"]);
+let Shells = dynamic(["cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe"]);
+_Im_ProcessCreate(starttime=ago(1h))
+| where ActingProcessName in~ (OfficeApps) and TargetProcessName in~ (Shells)
+| project TimeGenerated, DvcHostname, ActorUsername, ActingProcessName,
+    TargetProcessName, TargetProcessCommandLine

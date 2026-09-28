@@ -18,8 +18,8 @@ query: |
   DeviceProcessEvents
   | where Timestamp > ago(30m)
   | where InitiatingProcessFileName in~ (OfficeApps) and FileName in~ (Shells)
-  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
-  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName, ProcessCommandLine,
+  | extend AccountUPN=InitiatingProcessAccountUpn, TimeGenerated=Timestamp
+  | project TimeGenerated, DeviceName, DeviceId, AccountUPN, FileName, ProcessCommandLine,
       InitiatingProcessFileName, InitiatingProcessCommandLine, SHA1
 entityMappings:
   - entityType: Host
@@ -47,5 +47,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

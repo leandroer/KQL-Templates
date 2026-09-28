@@ -17,8 +17,8 @@ query: |
   | where Timestamp > ago(30m)
   | where FileName in~ ("certutil.exe", "bitsadmin.exe", "curl.exe", "mshta.exe")
   | where ProcessCommandLine has_any ("http://", "https://", "urlcache", "/transfer", "javascript:")
-  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
-  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName,
+  | extend AccountUPN=InitiatingProcessAccountUpn, TimeGenerated=Timestamp
+  | project TimeGenerated, DeviceName, DeviceId, AccountUPN, FileName,
       ProcessCommandLine, InitiatingProcessFileName, SHA1
 entityMappings:
   - entityType: Host
@@ -46,5 +46,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

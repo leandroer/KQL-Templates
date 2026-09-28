@@ -2,7 +2,8 @@ id: 7119ebea-8b2f-42f3-a263-02c898524364
 name: Repeated prompt injection indicators
 description: |
   Detects repeated prompt-injection or jailbreak phrases in a custom AI activity table.
-  Adapt the table and columns to the deployed AI telemetry schema before use.
+  Adapt the schema before use and map the behavior to an AI-specific framework such
+  as OWASP LLM01; no direct Enterprise ATT&CK technique is asserted here.
 severity: High
 status: Available
 requiredDataConnectors:
@@ -13,11 +14,8 @@ queryFrequency: 15m
 queryPeriod: 30m
 triggerOperator: gt
 triggerThreshold: 0
-tactics:
-  - InitialAccess
-  - DefenseEvasion
-relevantTechniques:
-  - T1190
+tactics: []
+relevantTechniques: []
 query: |
   let AttemptThreshold = 3;
   let SuspiciousTerms = dynamic([
@@ -32,7 +30,8 @@ query: |
       Sessions=make_set(SessionId_s, 20)
       by UserPrincipalName=UserPrincipalName_s, SourceIP=SourceIP_s, Application=Application_s
   | where AttemptCount >= AttemptThreshold
-  | project EndTime, StartTime, UserPrincipalName, SourceIP, Application,
+  | extend TimeGenerated=EndTime
+  | project TimeGenerated, EndTime, StartTime, UserPrincipalName, SourceIP, Application,
       AttemptCount, PromptSamples, Sessions
 entityMappings:
   - entityType: Account
@@ -65,5 +64,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

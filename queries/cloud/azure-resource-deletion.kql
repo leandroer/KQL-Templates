@@ -1,7 +1,18 @@
 // Name: Azure Resource Deletion
 // Description: Detects successful Azure resource deletion operations.
-// Data Source: AzureActivity
-// Response: Validate change ticket, actor, and deleted resource scope.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, Azure
+// Tables: AzureActivity
+// Required Connectors: Azure Activity
+// MITRE ATT&CK: T1485 Data Destruction
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: Caller, ResourceId
+// False Positives: Approved decommissioning, ephemeral infrastructure, or test environments
+// Tuning Guidance: Exclude approved automation and scope to critical resources
+// Response Guidance: Validate the change, actor, deleted resource, and recovery options
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/cloud/azure-resource-deletion.yaml
 
 AzureActivity
 | where TimeGenerated > ago(24h)
