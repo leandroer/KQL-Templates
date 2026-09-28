@@ -1,0 +1,50 @@
+id: 6f0ae318-a192-4ea2-951c-f308920e593e
+name: Living-off-the-land binary used for network retrieval
+description: Detects common Windows utilities executing with command-line patterns associated with remote payload retrieval.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes: [DeviceProcessEvents]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [CommandAndControl, Execution]
+relevantTechniques: [T1105, T1218]
+query: |
+  DeviceProcessEvents
+  | where Timestamp > ago(30m)
+  | where FileName in~ ("certutil.exe", "bitsadmin.exe", "curl.exe", "mshta.exe")
+  | where ProcessCommandLine has_any ("http://", "https://", "urlcache", "/transfer", "javascript:")
+  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
+  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName,
+      ProcessCommandLine, InitiatingProcessFileName, SHA1
+entityMappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: AccountUPN}]
+  - entityType: FileHash
+    fieldMappings: [{identifier: SHA1, columnName: SHA1}]
+customDetails:
+  Process: FileName
+  CommandLine: ProcessCommandLine
+alertDetailsOverride:
+  alertDisplayNameFormat: "{{FileName}} retrieved remote content on {{DeviceName}}"
+  alertDescriptionFormat: "A living-off-the-land utility executed with a network retrieval pattern."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Host, Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

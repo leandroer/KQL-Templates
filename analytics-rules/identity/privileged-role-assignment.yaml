@@ -1,0 +1,60 @@
+id: 48d34531-2bc7-4fda-963a-f3c2e865229c
+name: Successful privileged Entra role assignment
+description: Detects successful Entra role-management operations that add a member to a privileged role. Tune role names and approved access workflows.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes: [AuditLogs]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Persistence, PrivilegeEscalation]
+relevantTechniques: [T1098.003]
+query: |
+  let PrivilegedRoles = dynamic(["Global Administrator", "Privileged Role Administrator",
+      "Security Administrator", "Application Administrator", "Cloud Application Administrator"]);
+  AuditLogs
+  | where TimeGenerated > ago(30m)
+  | where Category =~ "RoleManagement" and Result =~ "success"
+  | where OperationName has_any ("Add member to role", "Add eligible member to role")
+  | mv-expand TargetResources
+  | extend TargetUPN=tostring(TargetResources.userPrincipalName),
+      InitiatorUPN=tostring(InitiatedBy.user.userPrincipalName),
+      InitiatorIP=tostring(InitiatedBy.user.ipAddress),
+      ModifiedProperties=TargetResources.modifiedProperties
+  | mv-expand ModifiedProperties
+  | extend PropertyName=tostring(ModifiedProperties.displayName),
+      NewValue=tostring(ModifiedProperties.newValue)
+  | where PropertyName =~ "Role.DisplayName" and NewValue has_any (PrivilegedRoles)
+  | extend RoleName=trim(@"[\"\[\]]", NewValue)
+  | project TimeGenerated, InitiatorUPN, InitiatorIP, TargetUPN, RoleName,
+      OperationName, CorrelationId
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: TargetUPN}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: InitiatorIP}]
+customDetails:
+  Initiator: InitiatorUPN
+  RoleName: RoleName
+  CorrelationId: CorrelationId
+alertDetailsOverride:
+  alertDisplayNameFormat: "Privileged role {{RoleName}} assigned to {{TargetUPN}}"
+  alertDescriptionFormat: "{{InitiatorUPN}} completed a privileged role assignment."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

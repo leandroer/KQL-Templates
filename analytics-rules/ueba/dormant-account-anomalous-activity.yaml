@@ -1,0 +1,58 @@
+id: d29b76d6-c82a-4fa3-b790-a85c7c4797a2
+name: High-priority activity from a previously dormant account
+description: Detects a high-priority UEBA activity for a user absent from the preceding 30-day BehaviorAnalytics baseline.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: BehaviorAnalytics
+    dataTypes: [BehaviorAnalytics]
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [InitialAccess, Persistence]
+relevantTechniques: [T1078]
+query: |
+  let DetectionWindow = 1h;
+  let BaselineWindow = 30d;
+  let MinimumPriority = 7;
+  let HistoricallyActiveUsers = BehaviorAnalytics
+      | where TimeGenerated between (ago(BaselineWindow) .. ago(DetectionWindow))
+      | where isnotempty(UserPrincipalName)
+      | summarize by UserPrincipalName;
+  BehaviorAnalytics
+  | where TimeGenerated > ago(DetectionWindow)
+  | where InvestigationPriority >= MinimumPriority and isnotempty(UserPrincipalName)
+  | join kind=leftanti HistoricallyActiveUsers on UserPrincipalName
+  | extend SourceIP=SourceIPAddress, AnomalyReason=tostring(ActivityInsights)
+  | project TimeGenerated, UserPrincipalName, SourceIP, SourceDevice,
+      InvestigationPriority, ActivityType, SourceIPLocation, AnomalyReason
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: SourceDevice}]
+customDetails:
+  Priority: InvestigationPriority
+  ActivityType: ActivityType
+  AnomalyReason: AnomalyReason
+alertDetailsOverride:
+  alertDisplayNameFormat: "Dormant identity anomaly: {{UserPrincipalName}}"
+  alertDescriptionFormat: "A previously unseen identity generated {{ActivityType}} with priority {{InvestigationPriority}}."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

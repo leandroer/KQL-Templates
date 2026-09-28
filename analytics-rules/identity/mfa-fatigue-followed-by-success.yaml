@@ -1,0 +1,59 @@
+id: ee1f612b-b654-449b-9180-a1282d2f737a
+name: Repeated MFA denials followed by successful sign-in
+description: Detects multiple user-denied MFA attempts followed by a successful sign-in for the same account. Validate result codes against tenant sign-in telemetry.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes: [SigninLogs]
+queryFrequency: 15m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [CredentialAccess, InitialAccess]
+relevantTechniques: [T1621, T1078]
+query: |
+  let DenialThreshold = 3;
+  let MfaDenials = SigninLogs
+      | where TimeGenerated > ago(1h)
+      | where ResultDescription has_any ("MFA denied", "user declined", "fraud")
+      | summarize FirstDenial=min(TimeGenerated), LastDenial=max(TimeGenerated),
+          DenialCount=count(), DenialIPs=make_set(IPAddress, 20) by UserPrincipalName
+      | where DenialCount >= DenialThreshold;
+  let SuccessfulSignins = SigninLogs
+      | where TimeGenerated > ago(1h) and ResultType == 0
+      | project SuccessTime=TimeGenerated, UserPrincipalName, SuccessIP=IPAddress,
+          AppDisplayName, AuthenticationRequirement;
+  MfaDenials
+  | join kind=inner SuccessfulSignins on UserPrincipalName
+  | where SuccessTime between (FirstDenial .. LastDenial + 30m)
+  | summarize arg_min(SuccessTime, *) by UserPrincipalName
+  | project SuccessTime, UserPrincipalName, SuccessIP, AppDisplayName,
+      AuthenticationRequirement, FirstDenial, LastDenial, DenialCount, DenialIPs
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SuccessIP}]
+customDetails:
+  DenialCount: DenialCount
+  DenialIPs: DenialIPs
+  Application: AppDisplayName
+alertDetailsOverride:
+  alertDisplayNameFormat: "Possible MFA fatigue against {{UserPrincipalName}}"
+  alertDescriptionFormat: "A successful sign-in followed {{DenialCount}} denied MFA attempts."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

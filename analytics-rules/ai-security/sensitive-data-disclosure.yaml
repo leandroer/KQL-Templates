@@ -1,0 +1,52 @@
+id: 4a5d74d9-4711-42ca-ac70-735430edbfee
+name: AI response containing sensitive data indicators
+description: Detects AI responses classified as sensitive or containing configured sensitive-data patterns. Adapt the custom schema and classifications before deployment.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: CustomLogsAma
+    dataTypes: [AIApp_CL]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Collection, Exfiltration]
+relevantTechniques: [T1530]
+query: |
+  let SensitiveTerms = dynamic(["confidential", "restricted", "private key", "access token", "social security"]);
+  AIApp_CL
+  | where TimeGenerated > ago(30m)
+  | extend Response=tostring(Response_s), Classification=tostring(SensitivityClassification_s)
+  | where Classification in~ ("Confidential", "Restricted", "Highly Confidential")
+      or Response has_any (SensitiveTerms)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s),
+      Application=tostring(Application_s), SessionId=tostring(SessionId_s)
+  | project TimeGenerated, UserPrincipalName, SourceIP, Application, SessionId,
+      Classification, ResponseSample=substring(Response, 0, 500)
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+customDetails:
+  Application: Application
+  SessionId: SessionId
+  Classification: Classification
+alertDetailsOverride:
+  alertDisplayNameFormat: "Sensitive AI output in {{Application}}"
+  alertDescriptionFormat: "A response for {{UserPrincipalName}} contained sensitive-data indicators."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled
