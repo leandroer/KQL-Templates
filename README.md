@@ -150,4 +150,4 @@ All content is provided as-is and should be reviewed, tested, and validated befo
 
 These queries are intended for defensive security operations, threat hunting, and detection engineering. Always validate and tune thresholds before production deployment.
 
-requests are not currently being accepted.
+Requests are not currently being accepted.
