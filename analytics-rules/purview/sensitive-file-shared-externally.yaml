@@ -1,0 +1,55 @@
+id: 43655984-8f97-41a0-8258-48981771df99
+name: Sensitive file shared externally
+description: Detects external sharing operations for files carrying configured sensitivity labels. Adapt label fields and values to the tenant audit schema.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes: [OfficeActivity]
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Exfiltration]
+relevantTechniques: [T1567]
+query: |
+  let SensitiveLabels = dynamic(["Confidential", "Highly Confidential", "Restricted"]);
+  OfficeActivity
+  | where TimeGenerated > ago(1h)
+  | where Workload in ("SharePoint", "OneDrive")
+  | where Operation in ("SharingInvitationCreated", "AnonymousLinkCreated", "SecureLinkCreated")
+  | extend UserPrincipalName=tostring(UserId), SourceIP=tostring(ClientIP),
+      FileName=tostring(SourceFileName), SiteUrl=tostring(Site_Url),
+      SensitivityLabel=tostring(column_ifexists("SensitivityLabel", "")),
+      TargetUser=tostring(column_ifexists("TargetUserOrGroupName", ""))
+  | where SensitivityLabel has_any (SensitiveLabels)
+  | project TimeGenerated, UserPrincipalName, SourceIP, Operation, FileName,
+      SiteUrl, SensitivityLabel, TargetUser
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+customDetails:
+  FileName: FileName
+  SiteUrl: SiteUrl
+  SensitivityLabel: SensitivityLabel
+  TargetUser: TargetUser
+alertDetailsOverride:
+  alertDisplayNameFormat: "Sensitive file shared externally by {{UserPrincipalName}}"
+  alertDescriptionFormat: "{{FileName}} with label {{SensitivityLabel}} was shared using {{Operation}}."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

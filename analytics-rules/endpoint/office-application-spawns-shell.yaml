@@ -1,0 +1,51 @@
+id: f31d59cc-4b8f-42a2-b06e-8e1cab866992
+name: Office application spawns command shell
+description: Detects Office applications creating command interpreters or script engines, a common initial-access and execution pattern.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes: [DeviceProcessEvents]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Execution]
+relevantTechniques: [T1204.002, T1059]
+query: |
+  let OfficeApps = dynamic(["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe"]);
+  let Shells = dynamic(["cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe"]);
+  DeviceProcessEvents
+  | where Timestamp > ago(30m)
+  | where InitiatingProcessFileName in~ (OfficeApps) and FileName in~ (Shells)
+  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
+  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName, ProcessCommandLine,
+      InitiatingProcessFileName, InitiatingProcessCommandLine, SHA1
+entityMappings:
+  - entityType: Host
+    fieldMappings: [{identifier: HostName, columnName: DeviceName}]
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: AccountUPN}]
+  - entityType: FileHash
+    fieldMappings: [{identifier: SHA1, columnName: SHA1}]
+customDetails:
+  ChildCommandLine: ProcessCommandLine
+  ParentProcess: InitiatingProcessFileName
+alertDetailsOverride:
+  alertDisplayNameFormat: "Office spawned {{FileName}} on {{DeviceName}}"
+  alertDescriptionFormat: "{{InitiatingProcessFileName}} launched a command or script interpreter."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Host, Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

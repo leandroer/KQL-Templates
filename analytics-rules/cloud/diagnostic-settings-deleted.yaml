@@ -1,0 +1,50 @@
+id: 04a2b9af-fcf5-4b8d-b885-7fb21fc803cc
+name: Azure diagnostic settings deleted
+description: Detects successful deletion of Azure diagnostic settings, which can reduce security visibility. Validate approved change activity before escalation.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActivity
+    dataTypes: [AzureActivity]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [DefenseEvasion]
+relevantTechniques: [T1562.008]
+query: |
+  AzureActivity
+  | where TimeGenerated > ago(30m)
+  | where OperationNameValue =~ "MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/DELETE"
+  | where ActivityStatusValue =~ "Success"
+  | extend CallerUPN=tostring(Caller), SourceIP=tostring(CallerIpAddress), ResourceId=tostring(_ResourceId)
+  | project TimeGenerated, CallerUPN, SourceIP, ResourceId, ResourceGroup,
+      SubscriptionId, CorrelationId, OperationNameValue
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: CallerUPN}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+  - entityType: AzureResource
+    fieldMappings: [{identifier: ResourceId, columnName: ResourceId}]
+customDetails:
+  CorrelationId: CorrelationId
+  SubscriptionId: SubscriptionId
+alertDetailsOverride:
+  alertDisplayNameFormat: "Diagnostic settings deleted by {{CallerUPN}}"
+  alertDescriptionFormat: "Diagnostic settings were deleted from {{ResourceId}}."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account, AzureResource]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

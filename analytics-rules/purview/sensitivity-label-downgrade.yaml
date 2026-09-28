@@ -1,0 +1,54 @@
+id: bb47429a-f00e-4e68-9579-00344a46869c
+name: Sensitivity label removed or downgraded
+description: Detects audit events indicating that a sensitivity label was removed or changed to a configured lower classification before possible sharing.
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes: [OfficeActivity]
+queryFrequency: 30m
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [DefenseEvasion, Exfiltration]
+relevantTechniques: [T1562.001]
+query: |
+  OfficeActivity
+  | where TimeGenerated > ago(1h)
+  | where Operation has_any ("SensitivityLabel", "LabelRemoved", "LabelChanged")
+  | extend UserPrincipalName=tostring(UserId), SourceIP=tostring(ClientIP),
+      FileName=tostring(SourceFileName), SiteUrl=tostring(Site_Url),
+      OldLabel=tostring(column_ifexists("OldSensitivityLabel", "")),
+      NewLabel=tostring(column_ifexists("SensitivityLabel", ""))
+  | where isnotempty(OldLabel)
+  | where isempty(NewLabel) or NewLabel in~ ("Public", "General", "None")
+  | project TimeGenerated, UserPrincipalName, SourceIP, Operation, FileName,
+      SiteUrl, OldLabel, NewLabel
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+customDetails:
+  FileName: FileName
+  OldLabel: OldLabel
+  NewLabel: NewLabel
+  SiteUrl: SiteUrl
+alertDetailsOverride:
+  alertDisplayNameFormat: "Sensitivity label changed by {{UserPrincipalName}}"
+  alertDescriptionFormat: "{{FileName}} changed from {{OldLabel}} to {{NewLabel}}."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

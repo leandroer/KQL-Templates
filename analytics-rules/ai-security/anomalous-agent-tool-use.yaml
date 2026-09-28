@@ -1,0 +1,54 @@
+id: da71bc7f-64aa-4829-ad1e-63b105c9e9e3
+name: Anomalous or denied AI agent tool execution
+description: Detects repeated denied, high-risk, or unapproved agent tool calls. Adapt tool risk and approval fields to the deployed AI telemetry schema.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: CustomLogsAma
+    dataTypes: [AIToolExecution_CL]
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics: [Execution, PrivilegeEscalation]
+relevantTechniques: [T1059]
+query: |
+  let AttemptThreshold = 3;
+  AIToolExecution_CL
+  | where TimeGenerated > ago(30m)
+  | extend UserPrincipalName=tostring(UserPrincipalName_s), SourceIP=tostring(SourceIP_s),
+      AgentId=tostring(AgentId_s), ToolName=tostring(ToolName_s), Result=tostring(Result_s),
+      RiskLevel=tostring(RiskLevel_s), ApprovalStatus=tostring(ApprovalStatus_s)
+  | where Result =~ "Denied" or RiskLevel in~ ("High", "Critical") or ApprovalStatus =~ "Missing"
+  | summarize StartTime=min(TimeGenerated), EndTime=max(TimeGenerated), AttemptCount=count(),
+      Tools=make_set(ToolName, 25), Results=make_set(Result, 10)
+      by UserPrincipalName, SourceIP, AgentId
+  | where AttemptCount >= AttemptThreshold
+  | project EndTime, StartTime, UserPrincipalName, SourceIP, AgentId, AttemptCount, Tools, Results
+entityMappings:
+  - entityType: Account
+    fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
+  - entityType: IP
+    fieldMappings: [{identifier: Address, columnName: SourceIP}]
+customDetails:
+  AgentId: AgentId
+  AttemptCount: AttemptCount
+  Tools: Tools
+alertDetailsOverride:
+  alertDisplayNameFormat: "Risky tool use by AI agent {{AgentId}}"
+  alertDescriptionFormat: "{{AttemptCount}} risky or denied tool calls were associated with {{UserPrincipalName}}."
+eventGroupingSettings: {aggregationKind: AlertPerResult}
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities: [Account]
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

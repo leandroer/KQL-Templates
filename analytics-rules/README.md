@@ -4,14 +4,16 @@ This folder contains deployable examples for converting validated KQL into Micro
 
 ## Rule Catalog
 
-| Domain | Rule | Primary tables |
+| Domain | Rules | Primary tables |
 |---|---|---|
-| Identity | Password spray against multiple users | `SigninLogs` |
-| Endpoint | Suspicious PowerShell execution | `DeviceProcessEvents` |
-| Cloud | Successful Azure resource deletion | `AzureActivity` |
-| Purview | Mass SharePoint or OneDrive downloads | `OfficeActivity` |
-| AI security | Prompt injection indicators | `AIApp_CL` |
-| UEBA | High-priority anomaly for a privileged identity | `BehaviorAnalytics`, `IdentityInfo` |
+| Identity | Password spray; MFA fatigue followed by success; privileged role assignment | `SigninLogs`, `AuditLogs` |
+| Endpoint | Suspicious PowerShell; Office spawning a shell; LOLBin network retrieval | `DeviceProcessEvents` |
+| Cloud | Resource deletion; Key Vault secret-access spike; diagnostic settings deletion | `AzureActivity`, `AzureDiagnostics` |
+| Purview | Mass downloads; sensitive external sharing; label downgrade | `OfficeActivity` |
+| AI security | Prompt injection; sensitive output; anomalous agent tool use | `AIApp_CL`, `AIToolExecution_CL` |
+| UEBA | Privileged-identity anomaly; dormant-account anomaly; service-account anomaly | `BehaviorAnalytics`, `IdentityInfo` |
+
+Each domain now includes three examples. The custom AI and Purview label rules deliberately document schema assumptions; confirm their fields against the target workspace before deployment.
 
 ## Query-to-Incident Flow
 
