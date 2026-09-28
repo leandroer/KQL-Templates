@@ -1,0 +1,79 @@
+id: 166f9fae-3817-419a-813b-df64fbe5069b
+name: High-priority UEBA anomaly involving a privileged identity
+description: |
+  Correlates high-priority behavior anomalies with current privileged-role or
+  blast-radius context from IdentityInfo. Adapt role terms to the tenant.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: BehaviorAnalytics
+    dataTypes:
+      - BehaviorAnalytics
+      - IdentityInfo
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - PrivilegeEscalation
+  - DefenseEvasion
+relevantTechniques:
+  - T1078
+query: |
+  let MinimumPriority = 7;
+  let PrivilegedRoleTerms = dynamic(["admin", "privileged", "security operator", "global reader"]);
+  let LatestIdentity =
+      IdentityInfo
+      | where TimeGenerated > ago(14d)
+      | extend IdentityUPN=tostring(column_ifexists("AccountUPN", "")),
+          Roles=tostring(column_ifexists("AssignedRoles", "")),
+          BlastRadius=tostring(column_ifexists("BlastRadius", ""))
+      | where isnotempty(IdentityUPN)
+      | summarize arg_max(TimeGenerated, *) by IdentityUPN;
+  BehaviorAnalytics
+  | where TimeGenerated > ago(1h)
+  | where InvestigationPriority >= MinimumPriority
+  | join kind=inner LatestIdentity on $left.UserPrincipalName == $right.IdentityUPN
+  | where Roles has_any (PrivilegedRoleTerms) or BlastRadius =~ "High"
+  | extend AccountUPN=UserPrincipalName, SourceIP=SourceIPAddress,
+      AnomalyReason=tostring(ActivityInsights)
+  | project TimeGenerated, AccountUPN, SourceIP, SourceDevice, InvestigationPriority,
+      ActivityType, Roles, BlastRadius, AnomalyReason
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: AccountUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: SourceIP
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: SourceDevice
+customDetails:
+  Priority: InvestigationPriority
+  ActivityType: ActivityType
+  Roles: Roles
+  BlastRadius: BlastRadius
+alertDetailsOverride:
+  alertDisplayNameFormat: "Privileged identity anomaly: {{AccountUPN}}"
+  alertDescriptionFormat: "{{ActivityType}} received investigation priority {{InvestigationPriority}}."
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

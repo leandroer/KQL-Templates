@@ -1,0 +1,40 @@
+// Name: UEBA Anomaly Before Privileged Role Assignment
+// Description: Correlates high-priority user behavior with a subsequent Entra role-management action.
+// Author: Leandro Rocha
+// Version: 1.0.0
+// Last Updated: 2026-09-28
+// Query Type: Detection
+// Platforms: Microsoft Sentinel UEBA, Microsoft Entra ID
+// Tables: BehaviorAnalytics, AuditLogs
+// Required Connectors: Microsoft Sentinel UEBA, Microsoft Entra ID
+// MITRE ATT&CK: T1098 Account Manipulation
+// Severity: High
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, SourceIPAddress
+// False Positives: Approved privileged-access workflows and emergency administration
+// Tuning Guidance: Filter to tenant-specific role assignment operations and approval systems
+// Response Guidance: Validate authorization, target role, initiator, and actions before and after assignment
+// Validation Status: Example
+// Related Analytics Rule: None
+
+let Window = 24h;
+let MinimumPriority = 7;
+let AnomalousUsers =
+    BehaviorAnalytics
+    | where TimeGenerated > ago(Window)
+    | where InvestigationPriority >= MinimumPriority
+    | project AnomalyTime=TimeGenerated, UserPrincipalName, InvestigationPriority,
+        ActivityType, SourceIPAddress, ActivityInsights;
+let RoleChanges =
+    AuditLogs
+    | where TimeGenerated > ago(Window)
+    | where Category =~ "RoleManagement"
+    | where Result =~ "success"
+    | extend InitiatorUPN = tostring(InitiatedBy.user.userPrincipalName)
+    | where isnotempty(InitiatorUPN)
+    | project RoleChangeTime=TimeGenerated, InitiatorUPN, OperationName, TargetResources;
+AnomalousUsers
+| join kind=inner RoleChanges on $left.UserPrincipalName == $right.InitiatorUPN
+| where RoleChangeTime between (AnomalyTime .. AnomalyTime + 4h)
+| project RoleChangeTime, AnomalyTime, UserPrincipalName, SourceIPAddress,
+    InvestigationPriority, ActivityType, OperationName, TargetResources, ActivityInsights

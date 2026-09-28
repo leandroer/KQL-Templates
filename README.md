@@ -2,6 +2,23 @@
 
 A professional, practical KQL reference library for Microsoft Sentinel, Microsoft Defender XDR, Microsoft Entra ID, Microsoft Purview, Azure, Microsoft 365, and AI Security detection engineering.
 
+The repository separates exploratory hunting, analyst investigation, and deployable detection content. Each production-oriented query documents its data requirements, entity fields, false positives, tuning guidance, and validation status.
+
+## Detection Engineering Architecture
+
+```mermaid
+flowchart LR
+    T["Security telemetry"] --> Q["Hunting and investigation queries"]
+    Q --> V["Historical validation and tuning"]
+    V --> A["Sentinel analytics rules"]
+    A --> I["Enriched incidents"]
+    I --> R["Investigation and response"]
+    R --> M["Measurement and improvement"]
+    M --> V
+    U["UEBA and identity context"] --> Q
+    U --> A
+```
+
 This repository is designed for security engineers, SOC analysts, detection engineers, incident responders, threat hunters, and architects who want to learn, write, tune, and operationalize KQL queries.
 
 ## What This Repository Provides
@@ -13,6 +30,10 @@ This repository is designed for security engineers, SOC analysts, detection engi
 - Investigation queries
 - Microsoft Purview data security queries
 - AI Security and Agentic AI detections
+- UEBA queries using `BehaviorAnalytics` and `IdentityInfo`
+- Deployable Microsoft Sentinel scheduled analytics rules
+- Detection architecture and lifecycle diagrams
+- Repository validation for query metadata and rule structure
 - Query tuning and performance guidance
 - Reusable query templates
 - Sentinel analytics rule examples
@@ -44,12 +65,32 @@ This repository is designed for security engineers, SOC analysts, detection engi
 │   ├── cloud/
 │   ├── email/
 │   ├── ai-security/
+│   ├── ueba/
 │   ├── purview/
 │   └── sentinel-operations/
 ├── analytics-rules/
 ├── workbooks/
-└── scripts/
+├── docs/architecture/
+└── scripts/validate_content.py
 ```
+
+## Content Types
+
+| Content | Purpose | Production readiness |
+|---|---|---|
+| `queries/` | Hunting, investigation, and detection logic | Check each file's `Validation Status` |
+| `queries/ueba/` | Behavior and identity-enriched analytics | Requires Sentinel UEBA |
+| `analytics-rules/` | Scheduled Microsoft Sentinel rule YAML | Tune and validate before deployment |
+| `templates/` | Starting points for new content | Replace every placeholder |
+| `docs/architecture/` | Detection engineering operating models | Reference documentation |
+
+## Validate the Repository
+
+```bash
+python3 scripts/validate_content.py
+```
+
+The validator checks query metadata, rule identifiers, unresolved placeholders, entity mapping output columns, relative Markdown links, and YAML structure when PyYAML is available.
 
 ## Recommended Learning Path
 
@@ -110,4 +151,3 @@ All content is provided as-is and should be reviewed, tested, and validated befo
 These queries are intended for defensive security operations, threat hunting, and detection engineering. Always validate and tune thresholds before production deployment.
 
 requests are not currently being accepted.
-

@@ -1,0 +1,43 @@
+// Name: Mass Download with UEBA Context
+// Description: Enriches high-volume SharePoint or OneDrive downloads with recent user behavior risk.
+// Author: Leandro Rocha
+// Version: 1.0.0
+// Last Updated: 2026-09-28
+// Query Type: Detection
+// Platforms: Microsoft Sentinel UEBA, Microsoft Purview Audit
+// Tables: OfficeActivity, BehaviorAnalytics
+// Required Connectors: Microsoft 365, Microsoft Sentinel UEBA
+// MITRE ATT&CK: T1530 Data from Cloud Storage
+// Severity: High
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, SourceIPAddress
+// False Positives: Approved migrations, backups, synchronization, or legal discovery
+// Tuning Guidance: Baseline download volume by role and require sensitivity context where available
+// Response Guidance: Validate intent, inspect downloaded content, and review sharing and exfiltration activity
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/purview/mass-file-downloads.yaml
+
+let Lookback = 24h;
+let DownloadThreshold = 200;
+let RiskThreshold = 5;
+let Downloads =
+    OfficeActivity
+    | where TimeGenerated > ago(Lookback)
+    | where Workload in ("SharePoint", "OneDrive")
+    | where Operation in ("FileDownloaded", "FileSyncDownloadedFull")
+    | summarize DownloadCount=count(), Files=make_set(SourceFileName, 100),
+        Sites=make_set(Site_Url, 50), SourceIPs=make_set(ClientIP, 20),
+        FirstDownload=min(TimeGenerated), LastDownload=max(TimeGenerated) by UserId
+    | where DownloadCount >= DownloadThreshold;
+let UserBehavior =
+    BehaviorAnalytics
+    | where TimeGenerated > ago(Lookback)
+    | where InvestigationPriority >= RiskThreshold
+    | summarize MaxInvestigationPriority=max(InvestigationPriority),
+        AnomalousActivities=make_set(ActivityType, 20),
+        BehaviorInsights=make_set(tostring(ActivityInsights), 20) by UserPrincipalName;
+Downloads
+| join kind=leftouter UserBehavior on $left.UserId == $right.UserPrincipalName
+| extend MaxInvestigationPriority=coalesce(MaxInvestigationPriority, 0)
+| project LastDownload, UserPrincipalName=UserId, DownloadCount, Files, Sites, SourceIPs,
+    FirstDownload, MaxInvestigationPriority, AnomalousActivities, BehaviorInsights

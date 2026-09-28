@@ -1,0 +1,65 @@
+id: 8eff5a51-79bb-46d8-a590-7af374197e6a
+name: Successful Azure resource deletion
+description: |
+  Detects successful Azure control-plane delete operations. Use resource criticality,
+  caller context, and approved change windows to tune incident creation.
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActivity
+    dataTypes:
+      - AzureActivity
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Impact
+relevantTechniques:
+  - T1485
+query: |
+  AzureActivity
+  | where TimeGenerated > ago(30m)
+  | where OperationNameValue endswith "/delete"
+  | where ActivityStatusValue =~ "Success"
+  | extend CallerUPN=tostring(Caller), ResourceId=tostring(_ResourceId)
+  | project TimeGenerated, CallerUPN, CallerIpAddress, OperationNameValue,
+      ResourceId, ResourceGroup, SubscriptionId, CorrelationId
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: CallerUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: CallerIpAddress
+  - entityType: AzureResource
+    fieldMappings:
+      - identifier: ResourceId
+        columnName: ResourceId
+customDetails:
+  Operation: OperationNameValue
+  ResourceGroup: ResourceGroup
+  CorrelationId: CorrelationId
+alertDetailsOverride:
+  alertDisplayNameFormat: "Azure resource deleted by {{CallerUPN}}"
+  alertDescriptionFormat: "{{OperationNameValue}} completed successfully for {{ResourceId}}."
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Account
+      - AzureResource
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

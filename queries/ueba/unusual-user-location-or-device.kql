@@ -1,0 +1,27 @@
+// Name: Unusual User Location or Device
+// Description: Finds UEBA activities whose insight context indicates a location or device deviation.
+// Author: Leandro Rocha
+// Version: 1.0.0
+// Last Updated: 2026-09-28
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel UEBA
+// Tables: BehaviorAnalytics
+// Required Connectors: Microsoft Sentinel UEBA and supported activity sources
+// MITRE ATT&CK: T1078 Valid Accounts
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, SourceIPAddress, SourceDevice
+// False Positives: Travel, VPN egress changes, device enrollment, or remote support
+// Tuning Guidance: Correlate with sign-in risk and approved travel before converting to a rule
+// Response Guidance: Confirm the user's location and device and review authentication context
+// Validation Status: Example
+// Related Analytics Rule: None
+
+let MinimumPriority = 5;
+BehaviorAnalytics
+| where TimeGenerated > ago(24h)
+| where InvestigationPriority >= MinimumPriority
+| extend InsightText = strcat(tostring(ActivityInsights), " ", tostring(DevicesInsights), " ", tostring(UsersInsights))
+| where InsightText has_any ("unusual", "uncommon", "first time", "new device", "new location")
+| project TimeGenerated, UserPrincipalName, InvestigationPriority, ActivityType,
+    SourceIPAddress, SourceIPLocation, SourceDevice, ActivityInsights, DevicesInsights, UsersInsights

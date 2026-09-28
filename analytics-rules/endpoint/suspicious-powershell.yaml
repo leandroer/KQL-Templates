@@ -1,0 +1,61 @@
+id: 0ed428b3-809b-48ba-a510-0e36d06d4c3b
+name: Suspicious PowerShell execution
+description: |
+  Detects PowerShell command lines containing encoded-command, download, expression,
+  execution-policy bypass, or hidden-window indicators. Tune approved automation.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceProcessEvents
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Execution
+relevantTechniques:
+  - T1059.001
+query: |
+  let SuspiciousFlags = dynamic(["-enc", "-encodedcommand", "downloadstring", "iex", "invoke-expression", "bypass", "hidden"]);
+  DeviceProcessEvents
+  | where Timestamp > ago(30m)
+  | where FileName in~ ("powershell.exe", "pwsh.exe")
+  | where ProcessCommandLine has_any (SuspiciousFlags)
+  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
+  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName,
+      ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: AccountUPN
+customDetails:
+  CommandLine: ProcessCommandLine
+  ParentProcess: InitiatingProcessFileName
+alertDetailsOverride:
+  alertDisplayNameFormat: "Suspicious PowerShell on {{DeviceName}}"
+  alertDescriptionFormat: "PowerShell was launched by {{InitiatingProcessFileName}} with suspicious command-line content."
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Host
+      - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled
