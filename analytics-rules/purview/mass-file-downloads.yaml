@@ -1,0 +1,66 @@
+id: e3dad8b8-ddde-40d9-8ad9-5ba279bee9cd
+name: Mass SharePoint or OneDrive file downloads
+description: |
+  Detects a user downloading an unusually large number of files in one hour.
+  Baseline thresholds by role and exclude approved migration and backup identities.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: Office365
+    dataTypes:
+      - OfficeActivity
+queryFrequency: 1h
+queryPeriod: 2h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Collection
+relevantTechniques:
+  - T1530
+query: |
+  let DownloadThreshold = 200;
+  OfficeActivity
+  | where TimeGenerated > ago(2h)
+  | where Workload in ("SharePoint", "OneDrive")
+  | where Operation in ("FileDownloaded", "FileSyncDownloadedFull")
+  | summarize StartTime=min(TimeGenerated), EndTime=max(TimeGenerated),
+      DownloadCount=count(), Files=make_set(SourceFileName, 100),
+      Sites=make_set(Site_Url, 50), SourceIPs=make_set(ClientIP, 20)
+      by UserPrincipalName=UserId, bin(TimeGenerated, 1h)
+  | where DownloadCount >= DownloadThreshold
+  | extend PrimarySourceIP=tostring(SourceIPs[0])
+  | project TimeGenerated, StartTime, EndTime, UserPrincipalName,
+      PrimarySourceIP, DownloadCount, Files, Sites, SourceIPs
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: PrimarySourceIP
+customDetails:
+  DownloadCount: DownloadCount
+  StartTime: StartTime
+  EndTime: EndTime
+alertDetailsOverride:
+  alertDisplayNameFormat: "Mass downloads by {{UserPrincipalName}}"
+  alertDescriptionFormat: "The user downloaded {{DownloadCount}} files during the detection window."
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

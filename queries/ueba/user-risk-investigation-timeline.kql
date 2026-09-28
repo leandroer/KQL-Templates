@@ -1,0 +1,28 @@
+// Name: User UEBA Investigation Timeline
+// Description: Produces a chronological UEBA timeline for a user supplied by the analyst.
+// Author: Leandro Rocha
+// Version: 1.0.0
+// Last Updated: 2026-09-28
+// Query Type: Investigation
+// Platforms: Microsoft Sentinel UEBA
+// Tables: BehaviorAnalytics
+// Required Connectors: Microsoft Sentinel UEBA and supported activity sources
+// MITRE ATT&CK: Not applicable - investigation utility
+// Severity: Informational
+// Lookback: 7d
+// Entity Fields: UserPrincipalName, SourceIPAddress, SourceDevice
+// False Positives: Not applicable - analyst-driven investigation query
+// Tuning Guidance: Replace the placeholder user and adjust lookback to the incident scope
+// Response Guidance: Pivot to original events, peer behavior, identities, devices, and source IPs
+// Validation Status: Example
+// Related Analytics Rule: None
+
+let TargetUser = "user@domain.com";
+let Lookback = 7d;
+BehaviorAnalytics
+| where TimeGenerated > ago(Lookback)
+| where UserPrincipalName =~ TargetUser
+| project TimeGenerated, UserPrincipalName, ActivityType, InvestigationPriority,
+    SourceIPAddress, SourceIPLocation, SourceDevice, DestinationIPAddress,
+    DestinationDevice, ActivityInsights, UsersInsights, DevicesInsights
+| order by TimeGenerated asc

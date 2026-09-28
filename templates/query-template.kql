@@ -3,12 +3,19 @@
 // Author:
 // Version:
 // Last Updated:
-// Data Sources:
+// Query Type: Hunting | Investigation | Detection
+// Platforms:
+// Tables:
+// Required Connectors:
 // MITRE ATT&CK:
 // Severity:
+// Lookback:
+// Entity Fields:
 // False Positives:
 // Tuning Guidance:
 // Response Guidance:
+// Validation Status: Example | Lab Tested | Production Validated
+// Related Analytics Rule:
 
 let Lookback = 24h;
 let Threshold = 10;

@@ -1,0 +1,69 @@
+id: 7119ebea-8b2f-42f3-a263-02c898524364
+name: Repeated prompt injection indicators
+description: |
+  Detects repeated prompt-injection or jailbreak phrases in a custom AI activity table.
+  Adapt the table and columns to the deployed AI telemetry schema before use.
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: CustomLogsAma
+    dataTypes:
+      - AIApp_CL
+queryFrequency: 15m
+queryPeriod: 30m
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+  - DefenseEvasion
+relevantTechniques:
+  - T1190
+query: |
+  let AttemptThreshold = 3;
+  let SuspiciousTerms = dynamic([
+      "ignore previous instructions", "reveal your system prompt", "jailbreak",
+      "bypass safety", "developer message", "hidden instructions"
+  ]);
+  AIApp_CL
+  | where TimeGenerated > ago(30m)
+  | where Prompt_s has_any (SuspiciousTerms)
+  | summarize StartTime=min(TimeGenerated), EndTime=max(TimeGenerated),
+      AttemptCount=count(), PromptSamples=make_set(Prompt_s, 10),
+      Sessions=make_set(SessionId_s, 20)
+      by UserPrincipalName=UserPrincipalName_s, SourceIP=SourceIP_s, Application=Application_s
+  | where AttemptCount >= AttemptThreshold
+  | project EndTime, StartTime, UserPrincipalName, SourceIP, Application,
+      AttemptCount, PromptSamples, Sessions
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: SourceIP
+customDetails:
+  Application: Application
+  AttemptCount: AttemptCount
+  StartTime: StartTime
+alertDetailsOverride:
+  alertDisplayNameFormat: "Repeated prompt injection indicators by {{UserPrincipalName}}"
+  alertDescriptionFormat: "{{AttemptCount}} suspicious prompts were observed in {{Application}}."
+eventGroupingSettings:
+  aggregationKind: AlertPerResult
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
+version: 1.0.0
+kind: Scheduled

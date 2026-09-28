@@ -25,5 +25,25 @@ entityMappings:
     fieldMappings:
       - identifier: FullName
         columnName: UserPrincipalName
+customDetails:
+  EventCount: EventCount
+alertDetailsOverride:
+  alertDisplayNameFormat: "REPLACE-WITH-ALERT-TITLE - {{UserPrincipalName}}"
+  alertDescriptionFormat: "REPLACE-WITH-ALERT-DESCRIPTION"
+eventGroupingSettings:
+  aggregationKind: SingleAlert
+incidentConfiguration:
+  createIncident: true
+  groupingConfiguration:
+    enabled: true
+    reopenClosedIncident: false
+    lookbackDuration: 5h
+    matchingMethod: Selected
+    groupByEntities:
+      - Account
+    groupByAlertDetails: []
+    groupByCustomDetails: []
+suppressionDuration: 5h
+suppressionEnabled: false
 version: 1.0.0
 kind: Scheduled

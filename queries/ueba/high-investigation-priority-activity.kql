@@ -1,0 +1,27 @@
+// Name: High Investigation Priority UEBA Activity
+// Description: Finds recent UEBA activity with a high anomaly score for analyst review.
+// Author: Leandro Rocha
+// Version: 1.0.0
+// Last Updated: 2026-09-28
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel UEBA
+// Tables: BehaviorAnalytics
+// Required Connectors: Microsoft Sentinel UEBA and supported activity sources
+// MITRE ATT&CK: Varies by ActivityType
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, SourceIPAddress, SourceDevice
+// False Positives: New duties, travel, device replacement, or legitimate administrative work
+// Tuning Guidance: Baseline score distribution and require sensitive activity for alerting
+// Response Guidance: Review insights, original source events, identity risk, and recent peer activity
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/ueba/anomalous-privileged-user-activity.yaml
+
+let Lookback = 24h;
+let MinimumPriority = 7;
+BehaviorAnalytics
+| where TimeGenerated > ago(Lookback)
+| where InvestigationPriority >= MinimumPriority
+| project TimeGenerated, UserPrincipalName, ActivityType, InvestigationPriority,
+    SourceIPAddress, SourceIPLocation, SourceDevice, ActivityInsights, UsersInsights, DevicesInsights
+| order by InvestigationPriority desc, TimeGenerated desc
