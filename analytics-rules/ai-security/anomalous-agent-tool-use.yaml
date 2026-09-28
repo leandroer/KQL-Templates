@@ -24,7 +24,8 @@ query: |
       Tools=make_set(ToolName, 25), Results=make_set(Result, 10)
       by UserPrincipalName, SourceIP, AgentId
   | where AttemptCount >= AttemptThreshold
-  | project EndTime, StartTime, UserPrincipalName, SourceIP, AgentId, AttemptCount, Tools, Results
+  | extend TimeGenerated=EndTime
+  | project TimeGenerated, EndTime, StartTime, UserPrincipalName, SourceIP, AgentId, AttemptCount, Tools, Results
 entityMappings:
   - entityType: Account
     fieldMappings: [{identifier: FullName, columnName: UserPrincipalName}]
@@ -50,5 +51,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

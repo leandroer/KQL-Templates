@@ -1,7 +1,18 @@
 // Name: Privileged Role Assignment
 // Description: Detects Microsoft Entra role assignment activity.
-// Data Source: AuditLogs
-// Response: Validate change request, verify actor, review target account risk.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, Microsoft Entra ID
+// Tables: AuditLogs
+// Required Connectors: Microsoft Entra ID
+// MITRE ATT&CK: T1098.003 Additional Cloud Roles
+// Severity: High
+// Lookback: 24h
+// Entity Fields: Actor, Target
+// False Positives: Approved PIM activation and access-management workflows
+// Tuning Guidance: Restrict to privileged roles and approved workflow identities
+// Response Guidance: Validate the request, actor, target, role, and subsequent activity
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/identity/privileged-role-assignment.yaml
 
 AuditLogs
 | where TimeGenerated > ago(24h)

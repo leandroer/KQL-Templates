@@ -7,11 +7,19 @@ A consistent style makes queries easier to review, tune, and operationalize.
 ```kql
 // Name: Suspicious Failed Sign-ins
 // Description: Detects users with abnormal failed sign-in volume.
-// Data Sources: SigninLogs
-// Tactic: Credential Access
+// Query Type: Hunting | Investigation | Detection
+// Platforms: Microsoft Sentinel, Microsoft Entra ID
+// Tables: SigninLogs
+// Required Connectors: Microsoft Entra ID
+// MITRE ATT&CK: T1110 Brute Force
 // Severity: Medium
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, IPAddress
 // False Positives: Password reset, new device, travel
-// Response: Validate user activity and review source IP reputation
+// Tuning Guidance: Use tenant-specific failure codes and approved-source exclusions
+// Response Guidance: Validate user activity and review source IP reputation
+// Validation Status: Example
+// Related Analytics Rule: None
 ```
 
 ## Best Practices
@@ -25,6 +33,11 @@ A consistent style makes queries easier to review, tune, and operationalize.
 - Tune thresholds based on environment baselines.
 - Include entity fields for Sentinel mapping.
 - Separate hunting queries from production detections.
+- Return `TimeGenerated` from scheduled analytics-rule queries.
+- Preserve every entity, custom-detail, and alert-template field in the final output.
+- Use `column_ifexists()` when documented schema evolution requires compatibility.
+- Prefer ASIM unifying parsers for portable Sentinel content where appropriate.
+- Treat anomaly scores and keyword matches as context rather than verdicts.
 
 ## Naming Conventions
 

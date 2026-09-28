@@ -1,24 +1,38 @@
 // Name: Successful Sign-in After Multiple Failures
 // Description: Correlates repeated failed sign-ins followed by success for the same user.
-// Data Source: SigninLogs
-// Use Case: Account compromise triage.
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, Microsoft Entra ID
+// Tables: SigninLogs
+// Required Connectors: Microsoft Entra ID
+// MITRE ATT&CK: T1078 Valid Accounts, T1110 Brute Force
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: UserPrincipalName, SuccessIP
+// False Positives: User password correction, password reset, or device reauthentication
+// Tuning Guidance: Use tenant-specific failure codes and compare failure and success source context
+// Response Guidance: Validate the user and investigate source IP, application, device, and session activity
+// Validation Status: Example
+// Related Analytics Rule: None
 
 let Lookback = 24h;
+let InvalidCredentialCodes = dynamic(["50126", "50053", "50055", "50056"]);
 let Failed =
 SigninLogs
 | where TimeGenerated > ago(Lookback)
-| where ResultType != 0
+| where tostring(ResultType) in (InvalidCredentialCodes)
 | summarize FailedCount=count(), FailedIPs=make_set(IPAddress, 50), FirstFailure=min(TimeGenerated), LastFailure=max(TimeGenerated)
     by UserPrincipalName;
 let Success =
 SigninLogs
 | where TimeGenerated > ago(Lookback)
 | where ResultType == 0
-| summarize arg_max(TimeGenerated, *) by UserPrincipalName;
+| project SuccessTime=TimeGenerated, UserPrincipalName, SuccessIP=IPAddress, AppDisplayName;
 Failed
 | join kind=inner Success on UserPrincipalName
 | where FailedCount >= 5
-| where TimeGenerated between (FirstFailure .. LastFailure + 1h)
+| where SuccessTime between (FirstFailure .. LastFailure + 1h)
+| summarize arg_min(SuccessTime, *) by UserPrincipalName
 | extend DetectionName = "Successful Sign-in After Multiple Failures"
 | extend Severity = "Medium"
-| project TimeGenerated, DetectionName, Severity, UserPrincipalName, FailedCount, FailedIPs, SuccessIP=IPAddress, AppDisplayName
+| extend TimeGenerated=SuccessTime
+| project TimeGenerated, DetectionName, Severity, UserPrincipalName, FailedCount, FailedIPs, SuccessIP, AppDisplayName

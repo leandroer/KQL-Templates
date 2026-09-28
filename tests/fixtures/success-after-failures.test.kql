@@ -1,0 +1,22 @@
+// Self-contained fixture for time-aware failure-to-success correlation.
+let InvalidCredentialCodes = dynamic(["50126"]);
+let Input = datatable(TimeGenerated:datetime, UserPrincipalName:string, ResultType:string, IPAddress:string, AppDisplayName:string)
+[
+    datetime(2026-09-28T12:00:00Z), "user@example.com", "50126", "203.0.113.10", "Portal",
+    datetime(2026-09-28T12:01:00Z), "user@example.com", "50126", "203.0.113.10", "Portal",
+    datetime(2026-09-28T12:02:00Z), "user@example.com", "50126", "203.0.113.10", "Portal",
+    datetime(2026-09-28T12:03:00Z), "user@example.com", "0", "203.0.113.11", "Portal",
+    datetime(2026-09-28T18:00:00Z), "user@example.com", "0", "198.51.100.30", "Portal"
+];
+let Failed = Input
+| where ResultType in (InvalidCredentialCodes)
+| summarize FailedCount=count(), FirstFailure=min(TimeGenerated), LastFailure=max(TimeGenerated) by UserPrincipalName;
+let Success = Input
+| where ResultType == "0"
+| project SuccessTime=TimeGenerated, UserPrincipalName, SuccessIP=IPAddress;
+let Detection = Failed
+| join kind=inner Success on UserPrincipalName
+| where FailedCount >= 3 and SuccessTime between (FirstFailure .. LastFailure + 1h)
+| summarize arg_min(SuccessTime, *) by UserPrincipalName;
+print TestPassed=toscalar(Detection | summarize Result=count()) == 1
+    and toscalar(Detection | take 1 | project SuccessIP) == "203.0.113.11"

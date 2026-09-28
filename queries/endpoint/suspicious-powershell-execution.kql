@@ -1,7 +1,18 @@
 // Name: Suspicious PowerShell Execution
 // Description: Detects PowerShell execution with encoded commands or suspicious flags.
-// Data Source: DeviceProcessEvents
-// Platform: Microsoft Defender XDR Advanced Hunting
+// Query Type: Detection
+// Platforms: Microsoft Defender XDR Advanced Hunting
+// Tables: DeviceProcessEvents
+// Required Connectors: Microsoft Defender XDR
+// MITRE ATT&CK: T1059.001 PowerShell
+// Severity: High
+// Lookback: 24h
+// Entity Fields: DeviceName, InitiatingProcessAccountUpn
+// False Positives: Administrative scripts and endpoint-management tooling
+// Tuning Guidance: Exclude signed scripts and approved parent processes; add signer and prevalence context
+// Response Guidance: Review the full process tree, script content, downloads, and network connections
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/endpoint/suspicious-powershell.yaml
 
 let SuspiciousFlags = dynamic(["-enc", "-encodedcommand", "downloadstring", "iex", "invoke-expression", "bypass", "hidden"]);
 DeviceProcessEvents

@@ -1,6 +1,6 @@
 id: d29b76d6-c82a-4fa3-b790-a85c7c4797a2
-name: High-priority activity from a previously dormant account
-description: Detects a high-priority UEBA activity for a user absent from the preceding 30-day BehaviorAnalytics baseline.
+name: High-priority activity from an identity not previously observed by UEBA
+description: Detects high-priority UEBA activity for a user absent from the preceding 30-day BehaviorAnalytics history. Absence here does not prove account dormancy.
 severity: High
 status: Available
 requiredDataConnectors:
@@ -39,8 +39,8 @@ customDetails:
   ActivityType: ActivityType
   AnomalyReason: AnomalyReason
 alertDetailsOverride:
-  alertDisplayNameFormat: "Dormant identity anomaly: {{UserPrincipalName}}"
-  alertDescriptionFormat: "A previously unseen identity generated {{ActivityType}} with priority {{InvestigationPriority}}."
+  alertDisplayNameFormat: "Newly observed UEBA identity anomaly: {{UserPrincipalName}}"
+  alertDescriptionFormat: "An identity absent from the prior UEBA history generated {{ActivityType}} with priority {{InvestigationPriority}}."
 eventGroupingSettings: {aggregationKind: AlertPerResult}
 incidentConfiguration:
   createIncident: true
@@ -54,5 +54,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled

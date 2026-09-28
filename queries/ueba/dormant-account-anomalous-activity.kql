@@ -1,5 +1,5 @@
-// Name: Dormant Account with Anomalous Activity
-// Description: Identifies high-priority activity for users absent from an earlier UEBA activity baseline.
+// Name: Newly Observed Identity with Anomalous Activity
+// Description: Identifies high-priority activity for users absent from an earlier BehaviorAnalytics history. This does not prove account dormancy.
 // Author: Leandro Rocha
 // Version: 1.0.0
 // Last Updated: 2026-09-28
@@ -11,7 +11,7 @@
 // Severity: High
 // Lookback: 30d baseline, 24h detection window
 // Entity Fields: UserPrincipalName, SourceIPAddress
-// False Positives: Returning employees, newly monitored identities, or seasonal accounts
+// False Positives: Newly monitored identities, source onboarding changes, or identities without earlier UEBA records
 // Tuning Guidance: Increase the baseline window and exclude known infrequent service identities
 // Response Guidance: Verify account ownership and investigate authentication and post-authentication activity
 // Validation Status: Example

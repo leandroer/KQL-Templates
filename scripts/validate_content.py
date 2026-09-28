@@ -15,7 +15,7 @@ except ImportError:  # YAML parsing is optional locally and installed in CI.
 
 
 ROOT = Path(__file__).resolve().parents[1]
-STRICT_QUERY_ROOTS = (ROOT / "queries" / "ueba",)
+STRICT_QUERY_ROOTS = (ROOT / "queries",)
 REQUIRED_QUERY_HEADERS = (
     "Name",
     "Description",
@@ -99,13 +99,41 @@ def validate_rules(errors: list[str], warnings: list[str]) -> None:
             errors.append(f"{relative(path)}: duplicate id also used by {relative(ids[rule_id])}")
         ids[rule_id] = path
         query = str(rule.get("query", ""))
+        projects = list(re.finditer(r"(?ms)^\s*\|\s*project\s+(.+?)(?=^\s*\||\Z)", query))
+        final_output = projects[-1].group(1) if projects else query
+        if not re.search(r"\bTimeGenerated\b", final_output):
+            errors.append(f"{relative(path)}: final query output must include TimeGenerated")
         for mapping in rule.get("entityMappings", []):
             for field_mapping in mapping.get("fieldMappings", []):
                 column = field_mapping.get("columnName")
-                if column and not re.search(rf"\b{re.escape(str(column))}\b", query):
+                if column and not re.search(rf"\b{re.escape(str(column))}\b", final_output):
                     errors.append(
-                        f"{relative(path)}: mapped column '{column}' is not present in the query"
+                        f"{relative(path)}: mapped column '{column}' is not present in the final output"
                     )
+        for detail, column in rule.get("customDetails", {}).items():
+            if column and not re.search(rf"\b{re.escape(str(column))}\b", final_output):
+                errors.append(
+                    f"{relative(path)}: custom detail '{detail}' column '{column}' is not in the final output"
+                )
+        override = rule.get("alertDetailsOverride", {})
+        override_text = " ".join(str(value) for value in override.values())
+        for column in re.findall(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", override_text):
+            if not re.search(rf"\b{re.escape(column)}\b", final_output):
+                errors.append(
+                    f"{relative(path)}: alert placeholder '{column}' is not in the final output"
+                )
+        frequency = parse_duration(rule.get("queryFrequency"))
+        period = parse_duration(rule.get("queryPeriod"))
+        if frequency is not None and period is not None and frequency > period:
+            errors.append(f"{relative(path)}: queryFrequency must not exceed queryPeriod")
+
+
+def parse_duration(value: object) -> int | None:
+    match = re.fullmatch(r"(\d+)([mhd])", str(value))
+    if not match:
+        return None
+    amount = int(match.group(1))
+    return amount * {"m": 1, "h": 60, "d": 1440}[match.group(2)]
 
 
 def validate_markdown_links(errors: list[str]) -> None:
@@ -123,12 +151,25 @@ def validate_markdown_links(errors: list[str]) -> None:
                 errors.append(f"{relative(path)}: broken relative link '{target}'")
 
 
+def validate_fixtures(errors: list[str]) -> None:
+    fixtures = sorted((ROOT / "tests" / "fixtures").glob("*.test.kql"))
+    if not fixtures:
+        errors.append("tests/fixtures: expected at least one KQL fixture")
+    for path in fixtures:
+        text = path.read_text(encoding="utf-8")
+        if "datatable(" not in text:
+            errors.append(f"{relative(path)}: fixture must be self-contained with datatable()")
+        if "TestPassed" not in text:
+            errors.append(f"{relative(path)}: fixture must return a TestPassed result")
+
+
 def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     validate_queries(errors)
     validate_rules(errors, warnings)
     validate_markdown_links(errors)
+    validate_fixtures(errors)
     for warning in sorted(set(warnings)):
         print(f"WARNING: {warning}")
     if errors:

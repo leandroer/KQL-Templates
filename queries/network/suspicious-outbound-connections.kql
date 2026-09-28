@@ -1,6 +1,18 @@
 // Name: Suspicious Outbound Connections
 // Description: Summarizes outbound network connections to uncommon remote ports.
-// Data Source: DeviceNetworkEvents
+// Query Type: Hunting
+// Platforms: Microsoft Defender XDR Advanced Hunting
+// Tables: DeviceNetworkEvents
+// Required Connectors: Microsoft Defender XDR
+// MITRE ATT&CK: T1041 Exfiltration Over C2 Channel
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: RemoteIP, DeviceName
+// False Positives: Custom applications, development services, and approved remote administration
+// Tuning Guidance: Combine ports with reputation, prevalence, process, and destination context
+// Response Guidance: Review initiating processes, destination reputation, transferred bytes, and persistence
+// Validation Status: Example
+// Related Analytics Rule: None
 
 let SuspiciousPorts = dynamic([4444, 1337, 8081, 9001, 31337]);
 DeviceNetworkEvents
@@ -10,4 +22,5 @@ DeviceNetworkEvents
     by RemoteIP, RemotePort
 | extend DetectionName = "Suspicious Outbound Connection"
 | extend Severity = "Medium"
-| project DetectionName, Severity, RemoteIP, RemotePort, ConnectionCount, Devices, Processes
+| extend TimeGenerated=now()
+| project TimeGenerated, DetectionName, Severity, RemoteIP, RemotePort, ConnectionCount, Devices, Processes

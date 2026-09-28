@@ -1,6 +1,18 @@
 // Name: External Sharing of Sensitive Data
 // Description: Detects sharing operations that should be correlated with sensitivity labels or Purview DLP events.
-// Data Source: OfficeActivity
+// Query Type: Hunting
+// Platforms: Microsoft Sentinel, Microsoft Purview Audit
+// Tables: OfficeActivity
+// Required Connectors: Microsoft 365
+// MITRE ATT&CK: T1567 Exfiltration Over Web Service
+// Severity: Medium
+// Lookback: 24h
+// Entity Fields: UserId, ClientIP
+// False Positives: Approved collaboration with partners or public publishing workflows
+// Tuning Guidance: Correlate with authoritative sensitivity-label or DLP telemetry
+// Response Guidance: Validate the recipient, file sensitivity, sharing scope, and business purpose
+// Validation Status: Example
+// Related Analytics Rule: analytics-rules/purview/sensitive-file-shared-externally.yaml
 
 OfficeActivity
 | where TimeGenerated > ago(24h)

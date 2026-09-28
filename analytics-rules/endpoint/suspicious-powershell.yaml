@@ -23,8 +23,8 @@ query: |
   | where Timestamp > ago(30m)
   | where FileName in~ ("powershell.exe", "pwsh.exe")
   | where ProcessCommandLine has_any (SuspiciousFlags)
-  | extend AccountUPN=InitiatingProcessAccountUpn, DetectionTime=Timestamp
-  | project DetectionTime, DeviceName, DeviceId, AccountUPN, FileName,
+  | extend AccountUPN=InitiatingProcessAccountUpn, TimeGenerated=Timestamp
+  | project TimeGenerated, DeviceName, DeviceId, AccountUPN, FileName,
       ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine
 entityMappings:
   - entityType: Host
@@ -57,5 +57,5 @@ incidentConfiguration:
     groupByCustomDetails: []
 suppressionDuration: 5h
 suppressionEnabled: false
-version: 1.0.0
+version: 1.0.1
 kind: Scheduled
